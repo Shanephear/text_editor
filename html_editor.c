@@ -21,7 +21,7 @@
 typedef struct erow
 {
   int size;
-  char *chars;
+  char *chars;  
 } erow;
 
 struct terminal_config
@@ -32,6 +32,7 @@ struct terminal_config
   int x_position, y_position;
   int numrows;
   erow *row;
+  int row_start;
 };
 
 struct terminal_config config;
@@ -41,7 +42,7 @@ struct initial_string
   char *val;
   int length;
 };
-
+struct initial_string v;
 enum arrow_keys
 {
   left,
@@ -53,10 +54,11 @@ enum arrow_keys
 void enable_default();
 void initial_setting();
 void append_string(struct initial_string *source, char *val, int len);
-void initial_rendering(struct initial_string *v, int argc, char *argv[]);
+void read_file(char *filename);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
+void update_screen(int reset);
 
 void enable_default()
 {
@@ -85,10 +87,10 @@ void initial_setting()
   printf("%d", ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws));
   config.rows = ws.ws_row;
   config.cols = ws.ws_col;
-  config.x_position = 1;
-  config.y_position = 1;
+  config.x_position = 0;
+  config.y_position = 0;
   config.numrows = 0;
-
+  config.row_start = 0;
   atexit(enable_default);
 }
 
@@ -136,9 +138,11 @@ void key_process(char key_val)
     move_cursor(key_val);
     break;
   case ctrl_value('q'):
-    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[2K", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
+    break;
+  default:
     break;
   }
 }
@@ -147,14 +151,32 @@ void move_cursor(char key_value)
   switch (key_value)
   {
   case up:
-    config.y_position--;
-    if (config.y_position == 0)
-      config.y_position++;
+    if (config.y_position - 1 == -1)
+    {
+      if (config.numrows > config.rows && config.row_start >= 1)
+      {
+        config.row_start--;
+        update_screen(0);
+      }
+    }
+    else
+    {
+      config.y_position--;
+    }
     break;
   case down:
-    config.y_position++;
-    if (config.y_position == config.rows + 1)
-      config.y_position--;
+    if ((config.y_position + 1) == config.rows)
+    {
+      if (config.numrows > config.rows && config.row_start < (config.numrows - config.rows))
+      {
+        config.row_start++;
+        update_screen(0);
+      }
+    }
+    else
+    {
+      config.y_position++;
+    }
     break;
   case right:
     config.x_position++;
@@ -168,28 +190,22 @@ void move_cursor(char key_value)
     break;
   }
   char cursor_position[32];
-  snprintf(cursor_position, sizeof(cursor_position), "\x1b[%d;%dH", config.y_position, config.x_position);
+  snprintf(cursor_position, sizeof(cursor_position), "\x1b[%d;%dH", config.y_position + 1, config.x_position + 1);
   write(STDOUT_FILENO, cursor_position, strlen(cursor_position));
 }
 void append_string(struct initial_string *source, char *val, int len)
 {
   char *append = realloc(source->val, source->length + len);
+  if (append == NULL) return;
   memcpy(&append[source->length], val, len);
   source->val = append;
   source->length += len;
 }
 
 // void clear_reposition()
-void initial_rendering(struct initial_string *v,int argc, char *argv[])
+void read_file(char *filename)
 {
-  // reset screen , the below function accepts 4 bytes where (\x1b) is 1 byte and other 3 bytes are [2J
-  append_string(v, "\x1b[2J", 4);
-  // TO position the cursor make us of this <esc>[1;1H where 1 and 1 represent first row and first column
-  append_string(v, "\x1b[H", 3);
-
-  if (argc > 1) 
-  {
-    FILE *file = fopen(argv[1],"r");
+    FILE *file = fopen(filename,"r");
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
@@ -206,31 +222,53 @@ void initial_rendering(struct initial_string *v,int argc, char *argv[])
     }
     free(line);
     fclose(file);
-  }
+}
 
-  // // Adding ~ to the whole screen
+void update_screen(int reset)
+{
+  v.length = 0;
+  v.val = NULL;
+  // To clear the screen
+  append_string(&v, "\x1b[2K", 4);
+  // TO position the cursor make us of this <esc>[1;1H where 1 and 1 represent first row and first column
+  append_string(&v, "\x1b[H", 3);
+
+  // Adding ~ and read file into the screen
   int y;
   for (y = 0; y < config.rows; y++)
   {
+    int index = y + config.row_start;
     if (y >= config.numrows)
     {
-      append_string(v, "~", 1);
+      append_string(&v, "~", 1);
     }
     else
     {
-      int len = config.row[y].size;
-      if (len > config.cols) len = config.cols;
-      append_string(v,config.row[y].chars ,len);
+      int length = config.row[index].size;
+      if (length > config.cols)
+      {
+        length = config.cols;
+      }
+      append_string(&v,config.row[index].chars ,length);
     }
+    
+    //Append this after each line
+    append_string(&v, "\x1b[K", 3);
+
     if (y < config.rows - 1)
     {
-      append_string(v, "\r\n", 2);
+      append_string(&v, "\r\n", 2);
     }
   }
-  // Bring back cursor to 1x1
-  append_string(v, "\x1b[H", 3);
+  if (reset == 1)
+  {
+    // Bring back cursor to 1x1
+    append_string(&v, "\x1b[H", 3);
+  }
   // Render the screen
-  write(STDOUT_FILENO, v->val, v->length);
+  write(STDOUT_FILENO, v.val, v.length);
+  struct initial_string *temp = &v;
+  free(temp->val);
 }
 
 int main(int argc, char *argv[])
@@ -238,12 +276,12 @@ int main(int argc, char *argv[])
   // disabling default behaviour of terminal
   initial_setting();
 
-  struct initial_string v;
-  v.length = 0;
-  v.val = NULL;
-
-  initial_rendering(&v, argc, argv);
-
+  // If file name is passed
+  if (argc > 1)
+  {
+    read_file(argv[1]);
+  }
+  update_screen(1);
   while(1)
   {
     char key_pressed = read_key();
