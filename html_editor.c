@@ -27,12 +27,13 @@ typedef struct erow
 struct terminal_config
 {
   struct termios default_terminos;
-  int rows;
-  int cols;
+  int nrows;
+  int ncols;
   int x_position, y_position;
   int numrows;
   erow *row;
   int row_start;
+  int col_start;
 };
 
 struct terminal_config config;
@@ -85,8 +86,8 @@ void initial_setting()
   // Store the windows size
   struct winsize ws;
   printf("%d", ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws));
-  config.rows = ws.ws_row;
-  config.cols = ws.ws_col;
+  config.nrows = ws.ws_row;
+  config.ncols = ws.ws_col;
   config.x_position = 0;
   config.y_position = 0;
   config.numrows = 0;
@@ -153,34 +154,28 @@ void move_cursor(char key_value)
   case up:
     if (config.y_position - 1 == -1)
     {
-      if (config.numrows > config.rows && config.row_start >= 1)
+      if (config.numrows > config.nrows && config.row_start >= 1)
       {
         config.row_start--;
         update_screen(0);
       }
     }
-    else
-    {
-      config.y_position--;
-    }
+    else config.y_position--;
     break;
   case down:
-    if ((config.y_position + 1) == config.rows)
+    if ((config.y_position + 1) == config.nrows)
     {
-      if (config.numrows > config.rows && config.row_start < (config.numrows - config.rows))
+      if (config.numrows > config.nrows && config.row_start < (config.numrows - config.nrows))
       {
         config.row_start++;
         update_screen(0);
       }
     }
-    else
-    {
-      config.y_position++;
-    }
+    else config.y_position++;
     break;
   case right:
     config.x_position++;
-    if (config.x_position == config.cols + 1)
+    if (config.x_position == config.ncols + 1)
       config.x_position--;
     break;
   case left:
@@ -235,7 +230,7 @@ void update_screen(int reset)
 
   // Adding ~ and read file into the screen
   int y;
-  for (y = 0; y < config.rows; y++)
+  for (y = 0; y < config.nrows; y++)
   {
     int index = y + config.row_start;
     if (y >= config.numrows)
@@ -245,9 +240,9 @@ void update_screen(int reset)
     else
     {
       int length = config.row[index].size;
-      if (length > config.cols)
+      if (length > config.ncols)
       {
-        length = config.cols;
+        length = config.ncols;
       }
       append_string(&v,config.row[index].chars ,length);
     }
@@ -255,7 +250,7 @@ void update_screen(int reset)
     //Append this after each line
     append_string(&v, "\x1b[K", 3);
 
-    if (y < config.rows - 1)
+    if (y < config.nrows - 1)
     {
       append_string(&v, "\r\n", 2);
     }
