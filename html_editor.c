@@ -86,7 +86,7 @@ void initial_setting()
   // Store the windows size
   struct winsize ws;
   printf("%d", ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws));
-  config.nrows = ws.ws_row;
+  config.nrows = ws.ws_row - 1;
   config.ncols = ws.ws_col;
   config.x_position = 0;
   config.y_position = 0;
@@ -180,7 +180,7 @@ void move_cursor(char key_value)
     break;
   case left:
     config.x_position--;
-    if (config.x_position == 0)
+    if (config.x_position == -1)
       config.x_position++;
     break;
   }
@@ -207,13 +207,32 @@ void read_file(char *filename)
     while ((linelen = getline(&line,&linecap,file)) != -1)
     {
       while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
-      int index = config.numrows;
-      config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
-      config.row[index].size = linelen;
-      config.row[index].chars = malloc(linelen + 1);
-      memcpy(config.row[index].chars, line, linelen);
-      config.row[index].chars[linelen] = '\0';
-      config.numrows++;
+      int temp_len = linelen;
+      int start_index = 0;
+      while(temp_len >= config.ncols) 
+      {
+        int index = config.numrows;
+        config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
+        config.row[index].size = config.ncols;
+        config.row[index].chars = malloc(config.ncols + 1);
+        int start_index_v = start_index * (config.ncols - 1);
+        memcpy(config.row[index].chars, &line[start_index_v], config.ncols);
+        config.row[index].chars[config.ncols] = '\0';
+        temp_len -= config.ncols;
+        start_index++;
+        config.numrows++;
+      }
+      if (temp_len > 0)
+      {
+        int index = config.numrows;
+        config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
+        config.row[index].size = temp_len;
+        config.row[index].chars = malloc(temp_len + 1);
+        int start_index_v = start_index * config.ncols;
+        memcpy(config.row[index].chars, &line[start_index_v], config.ncols);
+        config.row[index].chars[temp_len] = '\0';
+        config.numrows++;
+      }
     }
     free(line);
     fclose(file);
@@ -240,10 +259,6 @@ void update_screen(int reset)
     else
     {
       int length = config.row[index].size;
-      if (length > config.ncols)
-      {
-        length = config.ncols;
-      }
       append_string(&v,config.row[index].chars ,length);
     }
     
