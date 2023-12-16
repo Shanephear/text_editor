@@ -51,6 +51,10 @@ enum arrow_keys
   up,
   down
 };
+// Use this variable with fprintf function for debugging purpose
+// Open output.txt to see the print statements
+FILE *console_file;
+
 
 void enable_default();
 void initial_setting();
@@ -85,7 +89,7 @@ void initial_setting()
 
   // Store the windows size
   struct winsize ws;
-  printf("%d", ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws));
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
   config.nrows = ws.ws_row - 1;
   config.ncols = ws.ws_col;
   config.x_position = 0;
@@ -209,7 +213,7 @@ void read_file(char *filename)
       while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
       int temp_len = linelen;
       int start_index = 0;
-      while(temp_len >= config.ncols) 
+      while(temp_len >= config.ncols)
       {
         int index = config.numrows;
         config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
@@ -228,8 +232,8 @@ void read_file(char *filename)
         config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
         config.row[index].size = temp_len;
         config.row[index].chars = malloc(temp_len + 1);
-        int start_index_v = start_index * config.ncols;
-        memcpy(config.row[index].chars, &line[start_index_v], config.ncols);
+        int start_index_v = start_index * (config.ncols - 1);
+        memcpy(config.row[index].chars, &line[start_index_v], temp_len);
         config.row[index].chars[temp_len] = '\0';
         config.numrows++;
       }
@@ -283,6 +287,7 @@ void update_screen(int reset)
 
 int main(int argc, char *argv[])
 {
+  console_file = fopen("output.txt", "w");
   // disabling default behaviour of terminal
   initial_setting();
 
@@ -299,8 +304,14 @@ int main(int argc, char *argv[])
   }
 
   // Free memory
+  fclose(console_file);
   struct initial_string *temp = &v;
   free(temp->val);
+  struct terminal_config *temp_config = &config;
+  for (int i = 0; i < config.numrows;i++)
+  {
+    free(temp_config->row[i].chars);
+  }
 
   return 0;
 }
