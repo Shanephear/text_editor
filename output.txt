@@ -13,69 +13,52 @@ x:0 ,y:12 ,actual index: 1value:r ,actual_value: r
 x:0 ,y:13 ,actual index: 1value:m ,actual_value: m
 x:0 ,y:14 ,actual index: 1value:e ,actual_value: e
 x:0 ,y:15 ,actual index: 1value:  ,actual_value:  
-x:0 ,y:16 ,actual index: 1value:n ,actual_value: n
-x:0 ,y:17 ,actual index: 1value:i ,actual_value: i
-x:0 ,y:18 ,actual index: 1value:l ,actual_value: l
-x:0 ,y:19 ,actual index: 1value:r ,actual_value: r
-x:0 ,y:20 ,actual index: 1value:a ,actual_value: a
-x:0 ,y:21 ,actual index: 1value:d ,actual_value: d
-x:0 ,y:22 ,actual index: 2value:3 ,actual_value: 3
-x:0 ,y:23 ,actual index: 2value:i ,actual_value: i
-x:0 ,y:24 ,actual index: 2value:a ,actual_value: a
-x:0 ,y:25 ,actual index: 2value:e ,actual_value: e
-x:0 ,y:26 ,actual index: 2value:  ,actual_value:  
-x:0 ,y:27 ,actual index: 2value:s ,actual_value: s
-x:0 ,y:28 ,actual index: 2value:e ,actual_value: e
-x:0 ,y:29 ,actual index: 2value:i ,actual_value: i
-x:0 ,y:30 ,actual index: 2value:  ,actual_value:  
-x:0 ,y:31 ,actual index: 2value:s ,actual_value: s
-x:0 ,y:32 ,actual index: 3value:4 ,actual_value: 4
-x:0 ,y:33 ,actual index: 3value:p ,actual_value: p
-x:0 ,y:34 ,actual index: 3value:n ,actual_value: n
-x:0 ,y:35 ,actual index: 3value:p ,actual_value: p
-x:0 ,y:36 ,actual index: 3value:n ,actual_value: n
-x:0 ,y:37 ,actual index: 3value:d ,actual_value: d
-x:0 ,y:38 ,actual index: 3value:p ,actual_value: p
-x:0 ,y:39 ,actual index: 3value:  ,actual_value:  
-x:0 ,y:40 ,actual index: 3value:e ,actual_value: e
-x:0 ,y:41 ,actual index: 3value:t ,actual_value: t
-x:0 ,y:42 ,actual index: 3value:p ,actual_value: p
-x:0 ,y:43 ,actual index: 3value:a ,actual_value: a
-x:0 ,y:44 ,actual index: 3value:m ,actual_value: m
-x:0 ,y:45 ,actual index: 4value:5 ,actual_value: 5
-x:0 ,y:46 ,actual index: 4value:m ,actual_value: m
-x:0 ,y:47 ,actual index: 4value:t ,actual_value: t
-x:0 ,y:48 ,actual index: 4value:a ,actual_value: a
-x:0 ,y:49 ,actual index: 4value:f ,actual_value: f
-x:0 ,y:50 ,actual index: 4value:  ,actual_value:  
-x:0 ,y:51 ,actual index: 4value:  ,actual_value:  
-x:0 ,y:52 ,actual index: 4value:a ,actual_value: a
-x:0 ,y:53 ,actual index: 5value:6 ,actual_value: 6
-x:0 ,y:54 ,actual index: 5value:  ,actual_value:  
-x:0 ,y:55 ,actual index: 6value:7 ,actual_value: 7
-x:0 ,y:56 ,actual index: 7value:8 ,actual_value: 8
-x:0 ,y:57 ,actual index: 7value:  ,actual_value:  
-x:0 ,y:58 ,actual index: 7value:i ,actual_value: i
-x:0 ,y:59 ,actual index: 7value:r ,actual_value: r
-x:0 ,y:60 ,actual index: 7value:  ,actual_value:  
-x:0 ,y:61 ,actual index: 7value:c ,actual_value: c
-x:0 ,y:62 ,actual index: 7value:r ,actual_value: r
-x:0 ,y:63 ,actual index: 7value:i ,actual_value: i
-x:0 ,y:64 ,actual index: 7value:i ,actual_value: i
-x:0 ,y:65 ,actual index: 7value:n ,actual_value: n
-x:0 ,y:66 ,actual index: 8value:9 ,actual_value: 9
-x:0 ,y:67 ,actual index: 8value:t ,actual_value: t
-x:0 ,y:68 ,actual index: 8value:r ,actual_value: r
-x:0 ,y:69 ,actual index: 8value:m ,actual_value: m
-x:0 ,y:70 ,actual index: 8value:e ,actual_value: e
-x:0 ,y:71 ,actual index: 8value:  ,actual_value:  
-x:0 ,y:72 ,actual index: 8value:n ,actual_value: n
-x:0 ,y:73 ,actual index: 8value:i ,actual_value: i
-x:0 ,y:74 ,actual index: 8value:l ,actual_value: l
-x:0 ,y:75 ,actual index: 8value:r ,actual_value: r
-x:0 ,y:76 ,actual index: 8value:a ,actual_value: a
-x:0 ,y:77 ,actual index: 8value:d ,actual_value: d
-x:0 ,y:78 ,actual index: 9value:1 ,actual_value: 1
-x:0 ,y:79 ,actual index: 9value:p ,actual_value: p
-x:0 ,y:80 ,actual index: 9value:l ,actual_value: l
-x:0 ,y:81 ,actual index: 9value:s ,actual_value: s
+x:1 ,y:15 ,actual index: 1value:n ,actual_value: n
+x:2 ,y:15 ,actual index: 1value:i ,actual_value: i
+x:2 ,y:14 ,actual index: 1value:  ,actual_value:  
+x:2 ,y:15 ,actual index: 1value:i ,actual_value: i
+x:2 ,y:16 ,actual index: 1value:  ,actual_value:  
+x:3 ,y:16 ,actual index: 1value:c ,actual_value: c
+x:3 ,y:17 ,actual index: 1value:s ,actual_value: s
+x:4 ,y:17 ,actual index: 1value:  ,actual_value:  
+x:4 ,y:18 ,actual index: 1value:n ,actual_value: n
+x:5 ,y:18 ,actual index: 1value:i ,actual_value: i
+x:5 ,y:19 ,actual index: 1value:m ,actual_value: m
+x:6 ,y:19 ,actual index: 1value:a ,actual_value: a
+x:6 ,y:20 ,actual index: 1value:  ,actual_value:  
+x:7 ,y:20 ,actual index: 1value:v ,actual_value: v
+x:7 ,y:21 ,actual index: 1value:e ,actual_value: e
+x:8 ,y:21 ,actual index: 1value:t ,actual_value: t
+x:8 ,y:22 ,actual index: 2value:i ,actual_value: i
+x:9 ,y:22 ,actual index: 2value:t ,actual_value: t
+x:9 ,y:23 ,actual index: 2value:  ,actual_value:  
+x:9 ,y:24 ,actual index: 2value:e ,actual_value: e
+x:10 ,y:24 ,actual index: 2value:s ,actual_value: s
+x:11 ,y:24 ,actual index: 2value:q ,actual_value: q
+x:11 ,y:25 ,actual index: 2value:d ,actual_value: d
+x:12 ,y:25 ,actual index: 2value:u ,actual_value: u
+x:12 ,y:26 ,actual index: 2value:  ,actual_value:  
+x:13 ,y:26 ,actual index: 2value:s ,actual_value: s
+x:13 ,y:27 ,actual index: 2value:s ,actual_value: s
+x:14 ,y:27 ,actual index: 2value:  ,actual_value:  
+x:14 ,y:28 ,actual index: 2value:. ,actual_value: .
+x:15 ,y:28 ,actual index: 2value:  ,actual_value:  
+x:15 ,y:29 ,actual index: 2value:u ,actual_value: u
+x:16 ,y:29 ,actual index: 2value:m ,actual_value: m
+x:16 ,y:30 ,actual index: 2value:  ,actual_value:  
+x:17 ,y:30 ,actual index: 2value:u ,actual_value: u
+x:17 ,y:31 ,actual index: 2value:t ,actual_value: t
+x:18 ,y:31 ,actual index: 2value:  ,actual_value:  
+x:18 ,y:32 ,actual index: 3value:s ,actual_value: s
+x:19 ,y:32 ,actual index: 3value:t ,actual_value: t
+x:19 ,y:33 ,actual index: 3value:o ,actual_value: o
+x:20 ,y:33 ,actual index: 3value:n ,actual_value: n
+x:20 ,y:34 ,actual index: 3value:  ,actual_value:  
+x:21 ,y:34 ,actual index: 3value:e ,actual_value: e
+x:21 ,y:35 ,actual index: 3value:g ,actual_value: g
+x:22 ,y:35 ,actual index: 3value:e ,actual_value: e
+x:22 ,y:36 ,actual index: 3value:r ,actual_value: r
+x:23 ,y:36 ,actual index: 3value:i ,actual_value: i
+x:23 ,y:37 ,actual index: 3value:e ,actual_value: e
+x:24 ,y:37 ,actual index: 3value:n ,actual_value: n
+x:24 ,y:38 ,actual index: 3value:a ,actual_value: a

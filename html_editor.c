@@ -70,7 +70,7 @@ void enable_default();
 void initial_setting();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
-void read_file_helper(int actual_index);
+void read_file_helper(int size, int start_index,char *line);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
@@ -252,6 +252,7 @@ void read_file(char *filename)
       while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
       int temp_len = linelen;
       int start_index = 0;
+      //File data and file indexing
       config.actual_row = realloc(config.actual_row, sizeof(actual_erow)*(config.actual_numrows + 1));
       config.actual_row[config.actual_numrows].size = linelen;
       config.actual_row[config.actual_numrows].chars = malloc(linelen + 1);
@@ -259,31 +260,13 @@ void read_file(char *filename)
       config.actual_row[config.actual_numrows].chars[linelen] = '\0';
       while(temp_len >= config.ncols)
       {
-        int index = config.numrows;
-        config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
-        config.row[index].size = config.ncols;
-        config.row[index].chars = malloc(config.ncols + 1);
-        int start_index_v = start_index * (config.ncols - 1);
-        config.row[index].actual_index = config.actual_numrows;
-        config.row[index].start_index = start_index_v;
-        memcpy(config.row[index].chars, &line[start_index_v], config.ncols);
-        config.row[index].chars[config.ncols] = '\0';
+        read_file_helper(config.ncols, start_index,line);
         temp_len -= config.ncols;
         start_index++;
-        config.numrows++;
       }
       if (temp_len > 0)
       {
-        int index = config.numrows;
-        config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
-        config.row[index].size = temp_len;
-        config.row[index].chars = malloc(temp_len + 1);
-        int start_index_v = start_index * (config.ncols - 1);
-        config.row[index].actual_index = config.actual_numrows;
-        config.row[index].start_index = start_index_v;
-        memcpy(config.row[index].chars, &line[start_index_v], temp_len);
-        config.row[index].chars[temp_len] = '\0';
-        config.numrows++;
+        read_file_helper(temp_len, start_index,line);
       }
       config.actual_numrows++;
     }
@@ -291,10 +274,19 @@ void read_file(char *filename)
     fclose(file);
 }
 
-void read_file_helper(int actual_index)
+void read_file_helper(int size, int start_index,char *line)
 {
-  // int index = config.numrows;
-  // config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
+
+  int index = config.numrows;
+  config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
+  config.row[index].size = size;
+  config.row[index].chars = malloc(size + 1);
+  int start_index_v = start_index * (config.ncols - 1);
+  config.row[index].actual_index = config.actual_numrows;
+  config.row[index].start_index = start_index_v;
+  memcpy(config.row[index].chars, &line[start_index_v], size);
+  config.row[index].chars[size] = '\0';
+  config.numrows++;
 }
 
 void update_screen(int reset)
