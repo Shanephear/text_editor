@@ -74,7 +74,9 @@ void read_file_helper(int size, int start_index,char *line);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
+void set_cursor();
 void update_screen(int reset);
+void refresh();
 void insert_character(char key_value);
 void delete_character();
 
@@ -160,7 +162,6 @@ void key_process(char key_val)
   case right:
   case left:
     move_cursor(key_val);
-    insert_character(key_val);
     break;
   case ctrl_value('q'):
     write(STDOUT_FILENO, "\x1b[2K", 4);
@@ -171,18 +172,26 @@ void key_process(char key_val)
     delete_character();
     break;
   default:
+    insert_character(key_val);
     break;
   }
 }
 
 void insert_character(char key_value)
 {
-  int y_position = config.y_position + config.row_start;
-  erow row_value = config.row[y_position];
-  actual_erow actual_row = config.actual_row[row_value.actual_index];
-  int actual_x_postion = config.x_position + row_value.start_index;
-  fprintf(console_file,"x:%d ,y:%d ,actual index: %d",config.x_position,y_position,row_value.actual_index);
-  fprintf(console_file,"value:%c ,actual_value: %c\n",row_value.chars[config.x_position],actual_row.chars[actual_x_postion]);
+  // int y_position = config.y_position + config.row_start;
+  // erow row_value = config.row[y_position];
+  // actual_erow actual_row = config.actual_row[row_value.actual_index];
+  // int actual_x_postion = config.x_position + row_value.start_index;
+  // fprintf(console_file,"x:%d ,y:%d ,actual index: %d",config.x_position,y_position,row_value.actual_index);
+  // fprintf(console_file,"value:%c ,actual_value: %c\n",row_value.chars[config.x_position],actual_row.chars[actual_x_postion]);
+  // if (config.y_position + 1 > config.numrows)
+  // {
+  //   for (int i = 0;i < config.y_position;i++)
+  refresh();
+
+    
+  // }
 }
 
 void delete_character()
@@ -227,10 +236,16 @@ void move_cursor(char key_value)
       config.x_position++;
     break;
   }
+  set_cursor();
+}
+
+void set_cursor()
+{
   char cursor_position[32];
   snprintf(cursor_position, sizeof(cursor_position), "\x1b[%d;%dH", config.y_position + 1, config.x_position + 1);
   write(STDOUT_FILENO, cursor_position, strlen(cursor_position));
 }
+
 void append_string(struct initial_string *source, char *val, int len)
 {
   char *append = realloc(source->val, source->length + len);
@@ -287,6 +302,33 @@ void read_file_helper(int size, int start_index,char *line)
   memcpy(config.row[index].chars, &line[start_index_v], size);
   config.row[index].chars[size] = '\0';
   config.numrows++;
+}
+
+void refresh()
+{
+  struct terminal_config *temp_config = &config;
+  for (int i = 0; i < config.numrows;i++)
+  {
+    free(temp_config->row[i].chars);
+  }
+  config.numrows = 0;
+  for (int i =0;i < config.actual_numrows;i++)
+  {
+    int temp_len = config.actual_row[i].size;
+    int start_index = 0;
+    while(temp_len >= config.ncols)
+      {
+        read_file_helper(config.ncols, start_index,config.actual_row[i].chars);
+        temp_len -= config.ncols;
+        start_index++;
+      }
+      if (temp_len > 0)
+      {
+        read_file_helper(temp_len, start_index,config.actual_row[i].chars);
+      }
+  }
+  update_screen(0);
+  set_cursor();
 }
 
 void update_screen(int reset)
