@@ -228,10 +228,28 @@ void move_cursor(char key_value)
     if (config.x_position > config.row[config.y_position].size) config.x_position = config.row[config.y_position].size;
     break;
   case right:
+    if (config.x_position + 1 == config.row[config.y_position].size + 1) 
+    {
+      if (config.y_position + 1 < config.numrows)
+      {
+        config.x_position = 0;
+        move_cursor(down);
+        return;
+      }
+    }
     if (config.x_position + 1 <= config.row[config.y_position].size) config.x_position++;
     break;
   case left:
-    if (config.x_position -1 < 0) config.x_position++;
+    if (config.x_position - 1 == -1) 
+    {
+      if (config.y_position - 1 >= 0)
+      {
+        config.x_position = config.row[config.y_position - 1].size;
+        move_cursor(up);
+        return;
+      }
+    }
+    if (config.x_position - 1 >= 0) config.x_position--;
     break;
   }
   set_cursor();
