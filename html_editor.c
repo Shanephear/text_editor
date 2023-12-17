@@ -21,8 +21,16 @@
 typedef struct erow
 {
   int size;
-  char *chars;  
+  char *chars;
+  int actual_index;
+  int start_index;
 } erow;
+
+typedef struct actual_erow
+{
+  int size;
+  char *chars;
+} actual_erow;
 
 struct terminal_config
 {
@@ -31,9 +39,10 @@ struct terminal_config
   int ncols;
   int x_position, y_position;
   int numrows;
+  int actual_numrows;
   erow *row;
+  actual_erow *actual_row;
   int row_start;
-  int col_start;
 };
 
 struct terminal_config config;
@@ -49,7 +58,8 @@ enum arrow_keys
   left,
   right,
   up,
-  down
+  down,
+  delete
 };
 // Use this variable with fprintf function for debugging purpose
 // Open output.txt to see the print statements
@@ -60,10 +70,14 @@ void enable_default();
 void initial_setting();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
+void read_file_helper(int actual_index);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
 void update_screen(int reset);
+void insert_character(char key_value);
+void delete_character();
+
 
 void enable_default()
 {
@@ -95,6 +109,7 @@ void initial_setting()
   config.x_position = 0;
   config.y_position = 0;
   config.numrows = 0;
+  config.actual_numrows = 0;
   config.row_start = 0;
   atexit(enable_default);
 }
@@ -103,6 +118,10 @@ char read_key()
 {
   char c;
   read(STDIN_FILENO, &c, 1);
+  if (c == '\x7F')
+  {
+    return delete;
+  }
   if (c == '\x1b')
   {
     char key_pressed[3];
@@ -141,16 +160,36 @@ void key_process(char key_val)
   case right:
   case left:
     move_cursor(key_val);
+    insert_character(key_val);
     break;
   case ctrl_value('q'):
     write(STDOUT_FILENO, "\x1b[2K", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
     break;
+  case delete:
+    delete_character();
+    break;
   default:
     break;
   }
 }
+
+void insert_character(char key_value)
+{
+  int y_position = config.y_position + config.row_start;
+  erow row_value = config.row[y_position];
+  actual_erow actual_row = config.actual_row[row_value.actual_index];
+  int actual_x_postion = config.x_position + row_value.start_index;
+  fprintf(console_file,"x:%d ,y:%d ,actual index: %d",config.x_position,y_position,row_value.actual_index);
+  fprintf(console_file,"value:%c ,actual_value: %c\n",row_value.chars[config.x_position],actual_row.chars[actual_x_postion]);
+}
+
+void delete_character()
+{
+
+}
+
 void move_cursor(char key_value)
 {
   switch (key_value)
@@ -213,6 +252,11 @@ void read_file(char *filename)
       while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
       int temp_len = linelen;
       int start_index = 0;
+      config.actual_row = realloc(config.actual_row, sizeof(actual_erow)*(config.actual_numrows + 1));
+      config.actual_row[config.actual_numrows].size = linelen;
+      config.actual_row[config.actual_numrows].chars = malloc(linelen + 1);
+      memcpy(config.actual_row[config.actual_numrows].chars, line, linelen);
+      config.actual_row[config.actual_numrows].chars[linelen] = '\0';
       while(temp_len >= config.ncols)
       {
         int index = config.numrows;
@@ -220,6 +264,8 @@ void read_file(char *filename)
         config.row[index].size = config.ncols;
         config.row[index].chars = malloc(config.ncols + 1);
         int start_index_v = start_index * (config.ncols - 1);
+        config.row[index].actual_index = config.actual_numrows;
+        config.row[index].start_index = start_index_v;
         memcpy(config.row[index].chars, &line[start_index_v], config.ncols);
         config.row[index].chars[config.ncols] = '\0';
         temp_len -= config.ncols;
@@ -233,13 +279,22 @@ void read_file(char *filename)
         config.row[index].size = temp_len;
         config.row[index].chars = malloc(temp_len + 1);
         int start_index_v = start_index * (config.ncols - 1);
+        config.row[index].actual_index = config.actual_numrows;
+        config.row[index].start_index = start_index_v;
         memcpy(config.row[index].chars, &line[start_index_v], temp_len);
         config.row[index].chars[temp_len] = '\0';
         config.numrows++;
       }
+      config.actual_numrows++;
     }
     free(line);
     fclose(file);
+}
+
+void read_file_helper(int actual_index)
+{
+  // int index = config.numrows;
+  // config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
 }
 
 void update_screen(int reset)
@@ -311,6 +366,10 @@ int main(int argc, char *argv[])
   for (int i = 0; i < config.numrows;i++)
   {
     free(temp_config->row[i].chars);
+  }
+  for (int i = 0; i < config.actual_numrows;i++)
+  {
+    free(temp_config->actual_row[i].chars);
   }
 
   return 0;
