@@ -70,7 +70,7 @@ void enable_default();
 void initial_setting();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
-void read_file_helper(int size, int start_index,char *line);
+void read_file_helper(int size, int start_index,char *line,int actual_index);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
@@ -179,19 +179,11 @@ void key_process(char key_val)
 
 void insert_character(char key_value)
 {
-  // int y_position = config.y_position + config.row_start;
-  // erow row_value = config.row[y_position];
-  // actual_erow actual_row = config.actual_row[row_value.actual_index];
-  // int actual_x_postion = config.x_position + row_value.start_index;
-  // fprintf(console_file,"x:%d ,y:%d ,actual index: %d",config.x_position,y_position,row_value.actual_index);
-  // fprintf(console_file,"value:%c ,actual_value: %c\n",row_value.chars[config.x_position],actual_row.chars[actual_x_postion]);
-  // if (config.y_position + 1 > config.numrows)
-  // {
-  //   for (int i = 0;i < config.y_position;i++)
+  int y_position = config.y_position + config.row_start;
+  erow row_value = config.row[y_position];
+  actual_erow actual_row = config.actual_row[row_value.actual_index];
+  int actual_x_postion = config.x_position + row_value.start_index;
   refresh();
-
-    
-  // }
 }
 
 void delete_character()
@@ -201,6 +193,7 @@ void delete_character()
 
 void move_cursor(char key_value)
 {
+  int y_p = config.y_position + config.row_start;
   switch (key_value)
   {
   case up:
@@ -213,7 +206,8 @@ void move_cursor(char key_value)
       }
     }
     else config.y_position--;
-    if (config.x_position > config.row[config.y_position].size) config.x_position = config.row[config.y_position].size;
+    y_p = config.y_position + config.row_start;
+    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
     break;
   case down:
     if ((config.y_position + 1) == config.nrows)
@@ -224,27 +218,33 @@ void move_cursor(char key_value)
         update_screen(0);
       }
     }
-    else if ((config.y_position + 1) < config.numrows) config.y_position++;
-    if (config.x_position > config.row[config.y_position].size) config.x_position = config.row[config.y_position].size;
+    else if ((config.y_position + 1 + config.row_start) < config.numrows) 
+    {
+      config.y_position++;
+    }
+    y_p = config.y_position + config.row_start;
+    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
     break;
   case right:
-    if (config.x_position + 1 == config.row[config.y_position].size + 1) 
+    y_p = config.y_position + config.row_start;
+    if (config.x_position + 1 == config.row[y_p].size + 1) 
     {
-      if (config.y_position + 1 < config.numrows)
+      if (y_p + 1 < config.numrows)
       {
         config.x_position = 0;
         move_cursor(down);
         return;
       }
     }
-    if (config.x_position + 1 <= config.row[config.y_position].size) config.x_position++;
+    if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
     break;
   case left:
+   y_p = config.y_position + config.row_start;
     if (config.x_position - 1 == -1) 
     {
-      if (config.y_position - 1 >= 0)
+      if (y_p - 1 >= 0)
       {
-        config.x_position = config.row[config.y_position - 1].size;
+        config.x_position = config.row[y_p - 1].size;
         move_cursor(up);
         return;
       }
@@ -290,14 +290,13 @@ void read_file(char *filename)
       config.actual_row[config.actual_numrows].chars[temp_len] = '\0';
       while(temp_len >= config.ncols - 1)
       {
-        fprintf(console_file,"initial_len:%d\n",temp_len);
-        read_file_helper(config.ncols - 1, start_index,line);
+        read_file_helper(config.ncols - 1, start_index,line,config.actual_numrows);
         temp_len = temp_len - config.ncols + 1;
         start_index++;
       }
       if (temp_len > 0)
       {
-        read_file_helper(temp_len, start_index,line);
+        read_file_helper(temp_len, start_index,line,config.actual_numrows);
       }
       config.actual_numrows++;
     }
@@ -305,16 +304,15 @@ void read_file(char *filename)
     fclose(file);
 }
 
-void read_file_helper(int size, int start_index,char *line)
+void read_file_helper(int size, int start_index,char *line,int actual_index)
 {
-  fprintf(console_file,"%d\n",size);
   int index = config.numrows;
   config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
   config.row[index].size = size;
   config.row[index].chars = malloc(size + 1);
   int start_index_v = start_index * (config.ncols - 1);
-  config.row[index].actual_index = config.actual_numrows;
   config.row[index].start_index = start_index_v;
+  config.row[index].actual_index = actual_index;
   memcpy(config.row[index].chars, &line[start_index_v], size);
   config.row[index].chars[size] = '\0';
   config.numrows++;
@@ -328,20 +326,20 @@ void refresh()
     free(temp_config->row[i].chars);
   }
   config.numrows = 0;
-  for (int i =0;i < config.actual_numrows;i++)
+  for (int i = 0;i < config.actual_numrows;i++)
   {
     int temp_len = config.actual_row[i].size;
     int start_index = 0;
-    while(temp_len >= config.ncols)
-      {
-        read_file_helper(config.ncols - 1, start_index,config.actual_row[i].chars);
-        temp_len = temp_len - config.ncols + 1;
-        start_index++;
-      }
-      if (temp_len > 0)
-      {
-        read_file_helper(temp_len, start_index,config.actual_row[i].chars);
-      }
+    while(temp_len >= config.ncols - 1)
+    {
+      read_file_helper(config.ncols - 1, start_index,config.actual_row[i].chars,i);
+      temp_len = temp_len - config.ncols + 1;
+      start_index++;
+    }
+    if (temp_len > 0)
+    {
+      read_file_helper(temp_len, start_index,config.actual_row[i].chars,i);
+    }
   }
   update_screen(0);
   set_cursor();
