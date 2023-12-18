@@ -77,8 +77,7 @@ void move_cursor(char key_val);
 void set_cursor();
 void update_screen(int reset);
 void refresh(int m_cursor);
-void insert_character(char key_value);
-void delete_character();
+void edit_character(char key_value,char type);
 
 
 void enable_default()
@@ -169,33 +168,51 @@ void key_process(char key_val)
     exit(0);
     break;
   case delete:
-    delete_character();
+    edit_character('0','d');
     break;
   default:
-    insert_character(key_val);
+    edit_character(key_val,'i');
     break;
   }
 }
 
-void insert_character(char key_value)
+void edit_character(char key_value,char type)
 {
+  if (type == 'd' && config.x_position == 0 && config.y_position == 0) return;
+  int delete_position;
   int m_cursor = 0;
-  int y_position = config.y_position + config.row_start;
-  erow row_value = config.row[y_position];
-  if (config.x_position == row_value.size) m_cursor = 1;
-  else if (config.x_position == row_value.size - 1 && config.y_position == config.numrows - 1) m_cursor = 2;
-  actual_erow actual_row = config.actual_row[row_value.actual_index];
-  int actual_x_postion = config.x_position + row_value.start_index;
-  config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
-  memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1],&config.actual_row[row_value.actual_index].chars[actual_x_postion],actual_row.size - actual_x_postion + 1);
-  config.actual_row[row_value.actual_index].size++;
-  config.actual_row[row_value.actual_index].chars[actual_x_postion] = key_value;
-  refresh(m_cursor);
-}
-
-void delete_character()
-{
-
+  int y_position;
+  erow row_value;
+  actual_erow actual_row;
+  int actual_x_postion;
+  do 
+  {
+  y_position = config.y_position + config.row_start;
+  row_value = config.row[y_position];
+  actual_row = config.actual_row[row_value.actual_index];
+  actual_x_postion = config.x_position + row_value.start_index;
+  delete_position = actual_x_postion - 1;
+  if (delete_position == -1) move_cursor(left);
+  }
+  while(delete_position == -1 && type == 'd');
+  if (type == 'i')
+  {
+    m_cursor = 1;
+    if (config.x_position == config.ncols - 1) m_cursor = 2;
+    config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
+    memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1],&config.actual_row[row_value.actual_index].chars[actual_x_postion],actual_row.size - actual_x_postion + 1);
+    config.actual_row[row_value.actual_index].size++;
+    config.actual_row[row_value.actual_index].chars[actual_x_postion] = key_value;
+    refresh(m_cursor);
+  }
+  else if (type == 'd')
+  {
+    m_cursor = 3;
+    if (config.x_position == 0) m_cursor = 4;
+    memmove(&config.actual_row[row_value.actual_index].chars[delete_position],&config.actual_row[row_value.actual_index].chars[delete_position + 1],actual_row.size - delete_position);
+    config.actual_row[row_value.actual_index].size--;
+    refresh(m_cursor);
+  }
 }
 
 void move_cursor(char key_value)
@@ -214,7 +231,7 @@ void move_cursor(char key_value)
     }
     else config.y_position--;
     y_p = config.y_position + config.row_start;
-    if (config.x_position > config.row[y_p].size - 1) config.x_position = config.row[y_p].size;
+    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
     break;
   case down:
     if ((config.y_position + 1) == config.nrows)
@@ -230,24 +247,20 @@ void move_cursor(char key_value)
       config.y_position++;
     }
     y_p = config.y_position + config.row_start;
-    if (config.x_position > config.row[y_p].size - 1) config.x_position = config.row[y_p].size;
+    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
     break;
   case right:
     y_p = config.y_position + config.row_start;
-    if (config.x_position + 1 >= config.row[y_p].size)
+    if (config.x_position + 1 == config.row[y_p].size + 1)
     {
-      if (config.x_position + 1 < config.ncols - 1 && config.x_position + 1 == config.row[y_p].size)
-      {
-        config.x_position++;
-      }
-      else if (y_p + 1 < config.numrows)
+      if (y_p + 1 < config.numrows)
       {
         config.x_position = 0;
         move_cursor(down);
         return;
       }
     }
-    if (config.x_position + 1 <= config.row[y_p].size - 1) config.x_position++;
+    if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
     break;
   case left:
    y_p = config.y_position + config.row_start;
@@ -255,8 +268,7 @@ void move_cursor(char key_value)
     {
       if (y_p - 1 >= 0)
       {
-        config.x_position = config.row[y_p - 1].size - 1;
-        if (config.x_position < config.ncols - 2) config.x_position = config.row[y_p - 1].size;
+        config.x_position = config.row[y_p - 1].size;
         move_cursor(up);
         return;
       }
@@ -359,6 +371,12 @@ void refresh( int m_cursor)
   {
     move_cursor(right);
     move_cursor(right);
+  }
+  else if (m_cursor == 3) move_cursor(left);
+  else if (m_cursor == 4)
+  {
+    move_cursor(left);
+    move_cursor(left);
   }
   else set_cursor();
 }
