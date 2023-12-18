@@ -183,6 +183,10 @@ void insert_character(char key_value)
   erow row_value = config.row[y_position];
   actual_erow actual_row = config.actual_row[row_value.actual_index];
   int actual_x_postion = config.x_position + row_value.start_index;
+  config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
+  memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1],&config.actual_row[row_value.actual_index].chars[actual_x_postion],actual_row.size - actual_x_postion + 1);
+  config.actual_row[row_value.actual_index].size++;
+  config.actual_row[row_value.actual_index].chars[actual_x_postion] = key_value;
   refresh();
 }
 
