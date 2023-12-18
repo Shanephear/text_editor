@@ -76,7 +76,7 @@ void key_process(char key_val);
 void move_cursor(char key_val);
 void set_cursor();
 void update_screen(int reset);
-void refresh();
+void refresh(int m_cursor);
 void insert_character(char key_value);
 void delete_character();
 
@@ -179,15 +179,18 @@ void key_process(char key_val)
 
 void insert_character(char key_value)
 {
+  int m_cursor = 0;
   int y_position = config.y_position + config.row_start;
   erow row_value = config.row[y_position];
+  if (config.x_position == row_value.size) m_cursor = 1;
+  else if (config.x_position == row_value.size - 1 && config.y_position == config.numrows - 1) m_cursor = 2;
   actual_erow actual_row = config.actual_row[row_value.actual_index];
   int actual_x_postion = config.x_position + row_value.start_index;
   config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
   memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1],&config.actual_row[row_value.actual_index].chars[actual_x_postion],actual_row.size - actual_x_postion + 1);
   config.actual_row[row_value.actual_index].size++;
   config.actual_row[row_value.actual_index].chars[actual_x_postion] = key_value;
-  refresh();
+  refresh(m_cursor);
 }
 
 void delete_character()
@@ -211,7 +214,7 @@ void move_cursor(char key_value)
     }
     else config.y_position--;
     y_p = config.y_position + config.row_start;
-    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
+    if (config.x_position > config.row[y_p].size - 1) config.x_position = config.row[y_p].size;
     break;
   case down:
     if ((config.y_position + 1) == config.nrows)
@@ -227,20 +230,24 @@ void move_cursor(char key_value)
       config.y_position++;
     }
     y_p = config.y_position + config.row_start;
-    if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
+    if (config.x_position > config.row[y_p].size - 1) config.x_position = config.row[y_p].size;
     break;
   case right:
     y_p = config.y_position + config.row_start;
-    if (config.x_position + 1 == config.row[y_p].size + 1) 
+    if (config.x_position + 1 >= config.row[y_p].size)
     {
-      if (y_p + 1 < config.numrows)
+      if (config.x_position + 1 < config.ncols - 1 && config.x_position + 1 == config.row[y_p].size)
+      {
+        config.x_position++;
+      }
+      else if (y_p + 1 < config.numrows)
       {
         config.x_position = 0;
         move_cursor(down);
         return;
       }
     }
-    if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
+    if (config.x_position + 1 <= config.row[y_p].size - 1) config.x_position++;
     break;
   case left:
    y_p = config.y_position + config.row_start;
@@ -248,7 +255,8 @@ void move_cursor(char key_value)
     {
       if (y_p - 1 >= 0)
       {
-        config.x_position = config.row[y_p - 1].size;
+        config.x_position = config.row[y_p - 1].size - 1;
+        if (config.x_position < config.ncols - 2) config.x_position = config.row[y_p - 1].size;
         move_cursor(up);
         return;
       }
@@ -322,7 +330,7 @@ void read_file_helper(int size, int start_index,char *line,int actual_index)
   config.numrows++;
 }
 
-void refresh()
+void refresh( int m_cursor)
 {
   struct terminal_config *temp_config = &config;
   for (int i = 0; i < config.numrows;i++)
@@ -346,7 +354,13 @@ void refresh()
     }
   }
   update_screen(0);
-  set_cursor();
+  if (m_cursor == 1) move_cursor(right);
+  else if (m_cursor == 2)
+  {
+    move_cursor(right);
+    move_cursor(right);
+  }
+  else set_cursor();
 }
 
 void update_screen(int reset)
