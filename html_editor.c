@@ -59,7 +59,8 @@ enum arrow_keys
   right,
   up,
   down,
-  delete
+  delete,
+  enter
 };
 // Use this variable with fprintf function for debugging purpose
 // Open output.txt to see the print statements
@@ -119,13 +120,14 @@ char read_key()
 {
   char c;
   read(STDIN_FILENO, &c, 1);
-  if (c == '\x7F')
+  char key_pressed[3];
+  switch (c)
   {
+  case '\x7F':
     return delete;
-  }
-  if (c == '\x1b')
-  {
-    char key_pressed[3];
+  case '\r':
+    return enter;
+  case '\x1b':
     if (read(STDIN_FILENO, &key_pressed[0], 1) != 1)
       return '\x1b';
     if (read(STDIN_FILENO, &key_pressed[1], 1) != 1)
@@ -136,19 +138,16 @@ char read_key()
       {
       case 'A':
         return up;
-        break;
       case 'B':
         return down;
-        break;
       case 'C':
         return right;
-        break;
       case 'D':
         return left;
-        break;
       }
     }
-  }
+    break;
+  }  
   return c;
 }
 
@@ -169,6 +168,9 @@ void key_process(char key_val)
     break;
   case delete:
     edit_character('0','d');
+    break;
+  case enter:
+    edit_character('0','e');
     break;
   default:
     edit_character(key_val,'i');
@@ -192,11 +194,12 @@ void edit_character(char key_value,char type)
   actual_row = config.actual_row[row_value.actual_index];
   actual_x_postion = config.x_position + row_value.start_index;
   delete_position = actual_x_postion - 1;
-  if (delete_position == -1) move_cursor(left);
+  if (delete_position == -1 && type == 'd') move_cursor(left);
   }
   while(delete_position == -1 && type == 'd');
   if (type == 'i')
   {
+    // fprintf(console_file,"x_position:%d,y_position:%d,actual_size:%d,size:%d\n",config.x_position,config.y_position,actual_row.size,row_value.size);
     m_cursor = 1;
     if (config.x_position == config.ncols - 1) m_cursor = 2;
     config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
@@ -208,9 +211,44 @@ void edit_character(char key_value,char type)
   else if (type == 'd')
   {
     m_cursor = 3;
-    if (config.x_position == 0) m_cursor = 4;
+    if (config.x_position == 0)
+    {
+      move_cursor(left);
+      return;
+    }
     memmove(&config.actual_row[row_value.actual_index].chars[delete_position],&config.actual_row[row_value.actual_index].chars[delete_position + 1],actual_row.size - delete_position);
     config.actual_row[row_value.actual_index].size--;
+    if (config.actual_row[row_value.actual_index].size == 0)
+    {
+      struct terminal_config *temp_config = &config;
+      free(temp_config->actual_row[row_value.actual_index].chars);
+    } 
+    refresh(m_cursor);
+  }
+  else if (type == 'e')
+  {
+    config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
+    memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index));
+    config.actual_numrows++;
+    if (config.x_position == 0 && config.y_position == 0)
+    {
+      config.actual_row[row_value.actual_index].chars = malloc(1);
+      config.actual_row[row_value.actual_index].chars[0] = '\0';
+      config.actual_row[row_value.actual_index].size = 0;
+    }
+    else
+    {
+      int temp_len = actual_row.size - actual_x_postion;
+      char *temp = malloc(temp_len + 1);
+      strcpy(temp,&config.actual_row[row_value.actual_index].chars[actual_x_postion]);
+      config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_x_postion + 1);
+      config.actual_row[row_value.actual_index].chars[actual_x_postion] = '\0';
+      config.actual_row[row_value.actual_index].size = actual_x_postion;
+      config.actual_row[row_value.actual_index + 1].chars = malloc(temp_len + 1);
+      memcpy(config.actual_row[row_value.actual_index + 1].chars,temp,temp_len);
+      config.actual_row[row_value.actual_index + 1].chars[temp_len] = '\0';
+      config.actual_row[row_value.actual_index + 1].size = temp_len;
+    }
     refresh(m_cursor);
   }
 }
@@ -232,6 +270,7 @@ void move_cursor(char key_value)
     else config.y_position--;
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
+    fprintf(console_file,"up:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case down:
     if ((config.y_position + 1) == config.nrows)
@@ -248,6 +287,7 @@ void move_cursor(char key_value)
     }
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
+    fprintf(console_file,"down:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case right:
     y_p = config.y_position + config.row_start;
@@ -261,6 +301,7 @@ void move_cursor(char key_value)
       }
     }
     if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
+    fprintf(console_file,"left:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case left:
    y_p = config.y_position + config.row_start;
@@ -274,6 +315,7 @@ void move_cursor(char key_value)
       }
     }
     if (config.x_position - 1 >= 0) config.x_position--;
+    fprintf(console_file,"right:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   }
   set_cursor();
@@ -318,7 +360,7 @@ void read_file(char *filename)
         temp_len = temp_len - config.ncols + 1;
         start_index++;
       }
-      if (temp_len > 0)
+      if (temp_len >= 0)
       {
         read_file_helper(temp_len, start_index,line,config.actual_numrows);
       }
@@ -360,7 +402,7 @@ void refresh( int m_cursor)
       temp_len = temp_len - config.ncols + 1;
       start_index++;
     }
-    if (temp_len > 0)
+    if (temp_len >= 0)
     {
       read_file_helper(temp_len, start_index,config.actual_row[i].chars,i);
     }
@@ -398,6 +440,10 @@ void update_screen(int reset)
     if (y >= config.numrows)
     {
       append_string(&v, "~", 1);
+    }
+    else if(config.row[index].size == 0)
+    {
+      fprintf(console_file,"found the line which is empty\n");
     }
     else
     {
