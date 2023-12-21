@@ -180,23 +180,15 @@ void key_process(char key_val)
 
 void edit_character(char key_value,char type)
 {
-  if (type == 'd' && config.x_position == 0 && config.y_position == 0) return;
-  int delete_position;
   int m_cursor = 0;
   int y_position;
   erow row_value;
   actual_erow actual_row;
   int actual_x_postion;
-  do 
-  {
   y_position = config.y_position + config.row_start;
   row_value = config.row[y_position];
   actual_row = config.actual_row[row_value.actual_index];
   actual_x_postion = config.x_position + row_value.start_index;
-  delete_position = actual_x_postion - 1;
-  if (delete_position == -1 && type == 'd') move_cursor(left);
-  }
-  while(delete_position == -1 && type == 'd');
   if (type == 'i')
   {
     // fprintf(console_file,"x_position:%d,y_position:%d,actual_size:%d,size:%d\n",config.x_position,config.y_position,actual_row.size,row_value.size);
@@ -210,27 +202,53 @@ void edit_character(char key_value,char type)
   }
   else if (type == 'd')
   {
+    int delete_position = actual_x_postion - 1;
     m_cursor = 3;
     if (config.x_position == 0)
     {
-      move_cursor(left);
-      return;
+      if (config.actual_row[row_value.actual_index].size > 0)
+      {
+        if (actual_x_postion == 0 && row_value.actual_index > 0)
+        {
+          int new_len = config.actual_row[row_value.actual_index - 1].size + actual_row.size;
+          config.actual_row[row_value.actual_index - 1].chars = realloc(config.actual_row[row_value.actual_index - 1].chars,new_len + 1);
+          config.actual_row[row_value.actual_index - 1].chars = strcat(config.actual_row[row_value.actual_index - 1].chars,actual_row.chars);
+          config.actual_row[row_value.actual_index - 1].chars[new_len] = '\0';
+          config.actual_row[row_value.actual_index - 1].size = new_len;
+          memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index - 1));
+          config.actual_numrows--;
+          m_cursor = 5;
+        }
+        else
+        {
+          move_cursor(left);
+          return;
+        }
+      }
+      else
+      {
+        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index - 1));
+        config.actual_numrows--;
+      }
     }
-    memmove(&config.actual_row[row_value.actual_index].chars[delete_position],&config.actual_row[row_value.actual_index].chars[delete_position + 1],actual_row.size - delete_position);
-    config.actual_row[row_value.actual_index].size--;
-    if (config.actual_row[row_value.actual_index].size == 0)
+    else
     {
-      struct terminal_config *temp_config = &config;
-      free(temp_config->actual_row[row_value.actual_index].chars);
-    } 
+      memmove(&config.actual_row[row_value.actual_index].chars[delete_position],&config.actual_row[row_value.actual_index].chars[delete_position + 1],actual_row.size - delete_position);
+      config.actual_row[row_value.actual_index].size--;
+    }
     refresh(m_cursor);
   }
   else if (type == 'e')
   {
-    config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
-    memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index));
-    config.actual_numrows++;
-    if (config.x_position == 0 && config.y_position == 0)
+    int no_f_rows = 1;
+    no_f_rows = config.x_position == 0 && actual_x_postion > 0 ?  2 : 1;
+    for (int c = 0; c < no_f_rows; c++)
+    {
+      config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
+      memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index));
+      config.actual_numrows++;
+    }
+    if (config.x_position == 0 && actual_x_postion == 0)
     {
       config.actual_row[row_value.actual_index].chars = malloc(1);
       config.actual_row[row_value.actual_index].chars[0] = '\0';
@@ -238,16 +256,23 @@ void edit_character(char key_value,char type)
     }
     else
     {
+      m_cursor = 1;
       int temp_len = actual_row.size - actual_x_postion;
       char *temp = malloc(temp_len + 1);
       strcpy(temp,&config.actual_row[row_value.actual_index].chars[actual_x_postion]);
       config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_x_postion + 1);
       config.actual_row[row_value.actual_index].chars[actual_x_postion] = '\0';
       config.actual_row[row_value.actual_index].size = actual_x_postion;
-      config.actual_row[row_value.actual_index + 1].chars = malloc(temp_len + 1);
-      memcpy(config.actual_row[row_value.actual_index + 1].chars,temp,temp_len);
-      config.actual_row[row_value.actual_index + 1].chars[temp_len] = '\0';
-      config.actual_row[row_value.actual_index + 1].size = temp_len;
+      if (no_f_rows == 2)
+      {
+        config.actual_row[row_value.actual_index + 1].chars = malloc(1);
+        config.actual_row[row_value.actual_index + 1].chars[0] = '\0';
+        config.actual_row[row_value.actual_index + 1].size = 0;
+      }
+      config.actual_row[row_value.actual_index + no_f_rows].chars = malloc(temp_len + 1);
+      memcpy(config.actual_row[row_value.actual_index + no_f_rows].chars,temp,temp_len);
+      config.actual_row[row_value.actual_index + no_f_rows].chars[temp_len] = '\0';
+      config.actual_row[row_value.actual_index + no_f_rows].size = temp_len;
     }
     refresh(m_cursor);
   }
@@ -270,7 +295,6 @@ void move_cursor(char key_value)
     else config.y_position--;
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
-    fprintf(console_file,"up:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case down:
     if ((config.y_position + 1) == config.nrows)
@@ -287,7 +311,6 @@ void move_cursor(char key_value)
     }
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
-    fprintf(console_file,"down:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case right:
     y_p = config.y_position + config.row_start;
@@ -301,7 +324,6 @@ void move_cursor(char key_value)
       }
     }
     if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
-    fprintf(console_file,"left:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   case left:
    y_p = config.y_position + config.row_start;
@@ -315,7 +337,6 @@ void move_cursor(char key_value)
       }
     }
     if (config.x_position - 1 >= 0) config.x_position--;
-    fprintf(console_file,"right:x_position:%d,y_position:%d\n",config.x_position,config.y_position);
     break;
   }
   set_cursor();
@@ -360,7 +381,7 @@ void read_file(char *filename)
         temp_len = temp_len - config.ncols + 1;
         start_index++;
       }
-      if (temp_len >= 0)
+      if (temp_len > 0 || (temp_len == 0 && config.actual_row[config.actual_numrows].size == 0))
       {
         read_file_helper(temp_len, start_index,line,config.actual_numrows);
       }
@@ -384,7 +405,7 @@ void read_file_helper(int size, int start_index,char *line,int actual_index)
   config.numrows++;
 }
 
-void refresh( int m_cursor)
+void refresh(int m_cursor)
 {
   struct terminal_config *temp_config = &config;
   for (int i = 0; i < config.numrows;i++)
@@ -392,6 +413,7 @@ void refresh( int m_cursor)
     free(temp_config->row[i].chars);
   }
   config.numrows = 0;
+  fprintf(console_file,"%%%%%%%%%%%%%%%%%%");
   for (int i = 0;i < config.actual_numrows;i++)
   {
     int temp_len = config.actual_row[i].size;
@@ -402,25 +424,39 @@ void refresh( int m_cursor)
       temp_len = temp_len - config.ncols + 1;
       start_index++;
     }
-    if (temp_len >= 0)
+    if (temp_len > 0 || (temp_len == 0 && config.actual_row[i].size == 0))
     {
       read_file_helper(temp_len, start_index,config.actual_row[i].chars,i);
+      fprintf(console_file,"%d\n",temp_len);
     }
   }
-  update_screen(0);
-  if (m_cursor == 1) move_cursor(right);
-  else if (m_cursor == 2)
+  if (m_cursor != -1)
   {
-    move_cursor(right);
-    move_cursor(right);
+    update_screen(0);
+    switch (m_cursor)
+    {
+    case 1:
+      move_cursor(right);
+      break;
+    case 2:
+      move_cursor(right);
+      move_cursor(right);
+      break;
+    case 3:
+      move_cursor(left);
+      break;
+    case 4:
+      move_cursor(left);
+      move_cursor(left);
+      break;
+    case 5:
+      move_cursor(up);
+      break;
+    default:
+      set_cursor();
+      break;
+    }
   }
-  else if (m_cursor == 3) move_cursor(left);
-  else if (m_cursor == 4)
-  {
-    move_cursor(left);
-    move_cursor(left);
-  }
-  else set_cursor();
 }
 
 void update_screen(int reset)
@@ -441,11 +477,7 @@ void update_screen(int reset)
     {
       append_string(&v, "~", 1);
     }
-    else if(config.row[index].size == 0)
-    {
-      fprintf(console_file,"found the line which is empty\n");
-    }
-    else
+    else if(config.row[index].size > 0)
     {
       int length = config.row[index].size;
       append_string(&v,config.row[index].chars ,length);
@@ -477,9 +509,15 @@ int main(int argc, char *argv[])
   initial_setting();
 
   // If file name is passed
-  if (argc > 1)
+  if (argc > 1) read_file(argv[1]);
+  else 
   {
-    read_file(argv[1]);
+    config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
+    config.actual_row[0].chars = malloc(1);
+    config.actual_row[0].chars[0] = '\0';
+    config.actual_row[0].size = 0;
+    config.actual_numrows++;
+    refresh(-1);
   }
   update_screen(1);
   while(1)
