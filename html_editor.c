@@ -26,11 +26,11 @@ typedef struct erow
   int start_index;
 } erow;
 
-typedef struct actual_erow
+typedef struct struct_erow
 {
   int size;
   char *chars;
-} actual_erow;
+} struct_erow;
 
 struct terminal_config
 {
@@ -41,7 +41,7 @@ struct terminal_config
   int numrows;
   int actual_numrows;
   erow *row;
-  actual_erow *actual_row;
+  struct_erow *actual_row;
   int row_start;
   char mode;
 };
@@ -88,6 +88,7 @@ void update_screen(int reset);
 void refresh(int m_cursor);
 void edit_character(char key_value,char type);
 void initialize_first_character();
+void wait_for_keypress();
 
 
 void enable_default()
@@ -180,6 +181,10 @@ void key_process(char key_val)
     config.mode = config.mode == edit ? locked : edit;
     update_screen(-1);
     break;
+  case ctrl_value('f'):
+    config.mode = find;
+    update_screen(-1);
+    break;
   case delete:
     edit_character('0','d');
     break;
@@ -199,7 +204,7 @@ void edit_character(char key_value,char type)
   int m_cursor = 0;
   int y_position;
   erow row_value;
-  actual_erow actual_row;
+  struct_erow actual_row;
   int actual_x_postion;
   y_position = config.y_position + config.row_start;
   row_value = config.row[y_position];
@@ -229,7 +234,7 @@ void edit_character(char key_value,char type)
           move_cursor(end);
           m_cursor = 6;
         }
-        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index - 1));
+        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index - 1));
         config.actual_numrows--;
       }
       else if (config.actual_row[row_value.actual_index].size > 0)
@@ -241,7 +246,7 @@ void edit_character(char key_value,char type)
         config.actual_row[row_value.actual_index - 1].chars = strcat(config.actual_row[row_value.actual_index - 1].chars,actual_row.chars);
         config.actual_row[row_value.actual_index - 1].chars[new_len] = '\0';
         config.actual_row[row_value.actual_index - 1].size = new_len;
-        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index - 1));
+        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index - 1));
         config.actual_numrows--;
         m_cursor = 0;
       }
@@ -260,8 +265,8 @@ void edit_character(char key_value,char type)
     no_f_rows = config.x_position == 0  && actual_x_postion > 0 ?  2 : 1;
     for (int c = 0; c < no_f_rows; c++)
     {
-      config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
-      memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(actual_erow)*(config.actual_numrows - row_value.actual_index));
+      config.actual_row = realloc(config.actual_row,sizeof(struct_erow)*(config.actual_numrows + 1));
+      memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index));
       config.actual_numrows++;
     }
     if (config.x_position == 0 && actual_x_postion == 0)
@@ -389,7 +394,7 @@ void read_file(char *filename)
       int temp_len = linelen;
       int start_index = 0;
       //File data and file indexing
-      config.actual_row = realloc(config.actual_row, sizeof(actual_erow)*(config.actual_numrows + 1));
+      config.actual_row = realloc(config.actual_row, sizeof(struct_erow)*(config.actual_numrows + 1));
       config.actual_row[config.actual_numrows].size = temp_len;
       config.actual_row[config.actual_numrows].chars = malloc(temp_len + 1);
       memcpy(config.actual_row[config.actual_numrows].chars, line, temp_len);
@@ -529,19 +534,54 @@ void update_screen(int reset)
 }
 void initialize_first_character()
 {
-  config.actual_row = realloc(config.actual_row,sizeof(actual_erow)*(config.actual_numrows + 1));
+  config.actual_row = realloc(config.actual_row,sizeof(struct_erow)*(config.actual_numrows + 1));
   config.actual_row[0].chars = malloc(1);
   config.actual_row[0].chars[0] = '\0';
   config.actual_row[0].size = 0;
   config.actual_numrows++;
   refresh(-1);
 }
+
+void show_instructions()
+{
+  char *row[14];
+  row[0] = "\x1b[1;34m    ____  _____      __________  ______________  ____ ";
+  row[1] = "   / __ \\/ ___/     / ____/ __ \\/  _/_  __/ __ \\/ __ \\";
+  row[2] = "  / /_/ /\\__ \\     / __/ / / / // /  / / / / / / /_/ /";
+  row[3] = " / _, _/___/ /    / /___/ /_/ // /  / / / /_/ / _, _/";
+  row[4] = "/_/ |_|/____/    /_____/_____/___/ /_/  \\____/_/ |_|\x1b[0;39m";
+  row[5] = "";
+  row[6] = "";
+  row[7] = "Ctrl + I - Toggle between Edit and Locked Mode";
+  row[8] = "Ctrl + Q - Quit Editor";
+  row[9] = "Ctrl + S - Save Changes";
+  row[10] = "Ctrl + F - Search";
+  row[11] = "";
+  row[12] = "";
+  row[13] = "\x1b[0;104mPress ENTER key to continue\x1b[0;39m";
+  struct initial_string instruction;
+  instruction.length = 0;
+  instruction.val = NULL;
+  append_string(&instruction, "\x1b[2K", 4);
+  append_string(&instruction, "\x1b[H", 3);
+  for (int i = 0; i < 14; i++)
+  {
+    int char_len = strlen(row[i]);
+    if (char_len != 0) append_string(&instruction, row[i], char_len);
+    append_string(&instruction, "\x1b[K", 3);
+    append_string(&instruction, "\r\n", 2);
+  }
+  write(STDOUT_FILENO, instruction.val, instruction.length);
+  char c;
+  while(c != '\r') read(STDIN_FILENO, &c, 1);
+}
+
 int main(int argc, char *argv[])
 {
   console_file = fopen("output.txt", "w");
   // disabling default behaviour of terminal
   initial_setting();
-
+  show_instructions();
   // If file name is passed
   if (argc > 1)
   {
