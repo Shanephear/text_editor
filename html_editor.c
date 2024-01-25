@@ -32,6 +32,15 @@ typedef struct struct_erow
   char *chars;
 } struct_erow;
 
+typedef struct search_txt
+{
+  char *chars;
+  int size;
+  int start_index;
+  int search_index;
+} search_txt;
+
+struct search_txt s_txt;
 struct terminal_config
 {
   struct termios default_terminos;
@@ -74,22 +83,21 @@ enum editor_mode
 // Open output.txt to see the print statements
 FILE *console_file;
 
-
 void enable_default();
 void initial_setting();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
-void read_file_helper(int size, int start_index,char *line,int actual_index);
+void read_file_helper(int size, int start_index, char *line, int actual_index);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
+void move_search_cursor(char key_val, int m_cursor);
 void set_cursor();
 void update_screen(int reset);
 void refresh(int m_cursor);
-void edit_character(char key_value,char type);
+void edit_character(char key_value, char type);
+void edit_search_text(char key_value, char type);
 void initialize_first_character();
-void wait_for_keypress();
-
 
 void enable_default()
 {
@@ -124,6 +132,9 @@ void initial_setting()
   config.actual_numrows = 0;
   config.row_start = 0;
   config.mode = locked;
+  s_txt.size = 0;
+  s_txt.start_index = 0;
+  s_txt.search_index = 0;
   atexit(enable_default);
 }
 
@@ -158,7 +169,7 @@ char read_key()
       }
     }
     break;
-  }  
+  }
   return c;
 }
 
@@ -170,7 +181,8 @@ void key_process(char key_val)
   case down:
   case right:
   case left:
-    move_cursor(key_val);
+    if (config.mode == find) move_search_cursor(key_val,0);
+    else move_cursor(key_val);
     break;
   case ctrl_value('q'):
     write(STDOUT_FILENO, "\x1b[2K", 4);
@@ -183,21 +195,58 @@ void key_process(char key_val)
     break;
   case ctrl_value('f'):
     config.mode = find;
+    s_txt.size = 0;
+    config.y_position = config.nrows;
+    config.x_position = 1;
     update_screen(-1);
     break;
   case delete:
-    edit_character('0','d');
+    if (config.mode == find)
+      edit_search_text('0', 'd');
+    else
+      edit_character('0', 'd');
     break;
   case enter:
-    edit_character('0','e');
+    if (config.mode == find) edit_search_text('0', 'e');
+    else edit_character('0', 'e');
     break;
   default:
-    edit_character(key_val,'i');
+    if (config.mode == find) edit_search_text(key_val, 'i');
+    else edit_character(key_val, 'i');
     break;
   }
 }
 
-void edit_character(char key_value,char type)
+void edit_search_text(char key_value, char type)
+{
+  int a_position = config.x_position + s_txt.start_index;
+  switch (type)
+  {
+  case 'd':
+    if (a_position == 1)
+      return;
+    s_txt.size--;
+    memmove(&s_txt.chars[a_position - 2], &s_txt.chars[a_position - 1], s_txt.size - a_position + 2);
+    s_txt.chars[s_txt.size] = '\0';
+    if (s_txt.start_index > 0) move_search_cursor(left,1);
+    else move_search_cursor(left,0);
+    break;
+  case 'e':
+    break;
+  case 'i':
+    s_txt.size++;
+    s_txt.chars = realloc(s_txt.chars, s_txt.size + 1);
+    s_txt.chars[s_txt.size] = '\0';
+    memmove(&s_txt.chars[a_position], &s_txt.chars[a_position - 1], s_txt.size - a_position);
+    s_txt.chars[a_position - 1] = key_value;
+    move_search_cursor(right,0);
+    break;
+  default:
+    break;
+  }
+}
+
+void edit_character(char key_value, char type)
 {
   if (config.mode == locked) return;
   if (type == 'i' && config.actual_numrows == 0) initialize_first_character();
@@ -214,8 +263,8 @@ void edit_character(char key_value,char type)
   {
     m_cursor = 1;
     if (config.x_position == config.ncols - 1) m_cursor = 2;
-    config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_row.size + 2);
-    memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1],&config.actual_row[row_value.actual_index].chars[actual_x_postion],actual_row.size - actual_x_postion + 1);
+    config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars, actual_row.size + 2);
+    memmove(&config.actual_row[row_value.actual_index].chars[actual_x_postion + 1], &config.actual_row[row_value.actual_index].chars[actual_x_postion], actual_row.size - actual_x_postion + 1);
     config.actual_row[row_value.actual_index].size++;
     config.actual_row[row_value.actual_index].chars[actual_x_postion] = key_value;
   }
@@ -228,13 +277,13 @@ void edit_character(char key_value,char type)
     {
       if (config.actual_row[row_value.actual_index].size == 0)
       {
-        if (config.row_start >= 1) 
+        if (config.row_start >= 1)
         {
           config.row_start--;
           move_cursor(end);
           m_cursor = 6;
         }
-        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index - 1));
+        memmove(&config.actual_row[row_value.actual_index], &config.actual_row[row_value.actual_index + 1], sizeof(struct_erow) * (config.actual_numrows - row_value.actual_index - 1));
         config.actual_numrows--;
       }
       else if (config.actual_row[row_value.actual_index].size > 0)
@@ -242,31 +291,31 @@ void edit_character(char key_value,char type)
         move_cursor(left);
         int new_xposition = config.row[y_position - 1].size - 1;
         int new_len = config.actual_row[row_value.actual_index - 1].size + actual_row.size;
-        config.actual_row[row_value.actual_index - 1].chars = realloc(config.actual_row[row_value.actual_index - 1].chars,new_len + 1);
-        config.actual_row[row_value.actual_index - 1].chars = strcat(config.actual_row[row_value.actual_index - 1].chars,actual_row.chars);
+        config.actual_row[row_value.actual_index - 1].chars = realloc(config.actual_row[row_value.actual_index - 1].chars, new_len + 1);
+        config.actual_row[row_value.actual_index - 1].chars = strcat(config.actual_row[row_value.actual_index - 1].chars, actual_row.chars);
         config.actual_row[row_value.actual_index - 1].chars[new_len] = '\0';
         config.actual_row[row_value.actual_index - 1].size = new_len;
-        memmove(&config.actual_row[row_value.actual_index],&config.actual_row[row_value.actual_index + 1],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index - 1));
+        memmove(&config.actual_row[row_value.actual_index], &config.actual_row[row_value.actual_index + 1], sizeof(struct_erow) * (config.actual_numrows - row_value.actual_index - 1));
         config.actual_numrows--;
         m_cursor = 0;
       }
     }
     else
     {
-      memmove(&config.actual_row[row_value.actual_index].chars[delete_position],&config.actual_row[row_value.actual_index].chars[delete_position + 1],actual_row.size - delete_position);
+      memmove(&config.actual_row[row_value.actual_index].chars[delete_position], &config.actual_row[row_value.actual_index].chars[delete_position + 1], actual_row.size - delete_position);
       config.actual_row[row_value.actual_index].size--;
-      if (config.x_position == 1 && config.actual_row[row_value.actual_index].size !=0) m_cursor = 4;
+      if (config.x_position == 1 && config.actual_row[row_value.actual_index].size != 0) m_cursor = 4;
     }
   }
   else if (type == 'e')
   {
     m_cursor = 1;
     int no_f_rows = 1;
-    no_f_rows = config.x_position == 0  && actual_x_postion > 0 ?  2 : 1;
+    no_f_rows = config.x_position == 0 && actual_x_postion > 0 ? 2 : 1;
     for (int c = 0; c < no_f_rows; c++)
     {
-      config.actual_row = realloc(config.actual_row,sizeof(struct_erow)*(config.actual_numrows + 1));
-      memmove(&config.actual_row[row_value.actual_index + 1],&config.actual_row[row_value.actual_index],sizeof(struct_erow)*(config.actual_numrows - row_value.actual_index));
+      config.actual_row = realloc(config.actual_row, sizeof(struct_erow) * (config.actual_numrows + 1));
+      memmove(&config.actual_row[row_value.actual_index + 1], &config.actual_row[row_value.actual_index], sizeof(struct_erow) * (config.actual_numrows - row_value.actual_index));
       config.actual_numrows++;
     }
     if (config.x_position == 0 && actual_x_postion == 0)
@@ -279,8 +328,8 @@ void edit_character(char key_value,char type)
     {
       int temp_len = actual_row.size - actual_x_postion;
       char *temp = malloc(temp_len + 1);
-      strcpy(temp,&config.actual_row[row_value.actual_index].chars[actual_x_postion]);
-      config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars,actual_x_postion + 1);
+      strcpy(temp, &config.actual_row[row_value.actual_index].chars[actual_x_postion]);
+      config.actual_row[row_value.actual_index].chars = realloc(config.actual_row[row_value.actual_index].chars, actual_x_postion + 1);
       config.actual_row[row_value.actual_index].chars[actual_x_postion] = '\0';
       config.actual_row[row_value.actual_index].size = actual_x_postion;
       if (no_f_rows == 2)
@@ -290,12 +339,33 @@ void edit_character(char key_value,char type)
         config.actual_row[row_value.actual_index + 1].size = 0;
       }
       config.actual_row[row_value.actual_index + no_f_rows].chars = malloc(temp_len + 1);
-      memcpy(config.actual_row[row_value.actual_index + no_f_rows].chars,temp,temp_len);
+      memcpy(config.actual_row[row_value.actual_index + no_f_rows].chars, temp, temp_len);
       config.actual_row[row_value.actual_index + no_f_rows].chars[temp_len] = '\0';
       config.actual_row[row_value.actual_index + no_f_rows].size = temp_len;
     }
   }
   refresh(m_cursor);
+}
+
+void move_search_cursor(char key_val, int m_cursor)
+{
+  int a_position = config.x_position + s_txt.start_index;
+  switch (key_val)
+  {
+  case left:
+    if (a_position == 1) return;
+    if((config.x_position == 1 && a_position > 1) || m_cursor == 1) s_txt.start_index--;
+    else config.x_position--;
+    update_screen(0);
+    break;
+  case right:
+    if (a_position > s_txt.size) return;
+    if (config.x_position > config.ncols - 20) s_txt.start_index++;
+    else config.x_position++;
+    update_screen(0);
+    break;
+  }
+  set_cursor();
 }
 
 void move_cursor(char key_value)
@@ -325,7 +395,7 @@ void move_cursor(char key_value)
         update_screen(0);
       }
     }
-    else if ((config.y_position + 1 + config.row_start) < config.numrows) 
+    else if ((config.y_position + 1 + config.row_start) < config.numrows)
     {
       config.y_position++;
     }
@@ -346,8 +416,8 @@ void move_cursor(char key_value)
     if (config.x_position + 1 <= config.row[y_p].size) config.x_position++;
     break;
   case left:
-   y_p = config.y_position + config.row_start;
-    if (config.x_position - 1 == -1) 
+    y_p = config.y_position + config.row_start;
+    if (config.x_position - 1 == -1)
     {
       if (y_p - 1 >= 0)
       {
@@ -384,38 +454,38 @@ void append_string(struct initial_string *source, char *val, int len)
 
 void read_file(char *filename)
 {
-    FILE *file = fopen(filename,"r");
-    char *line = NULL;
-    size_t linecap = 0;
-    ssize_t linelen;
-    while ((linelen = getline(&line,&linecap,file)) != -1)
+  FILE *file = fopen(filename, "r");
+  char *line = NULL;
+  size_t linecap = 0;
+  ssize_t linelen;
+  while ((linelen = getline(&line, &linecap, file)) != -1)
+  {
+    while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
+    int temp_len = linelen;
+    int start_index = 0;
+    // File data and file indexing
+    config.actual_row = realloc(config.actual_row, sizeof(struct_erow) * (config.actual_numrows + 1));
+    config.actual_row[config.actual_numrows].size = temp_len;
+    config.actual_row[config.actual_numrows].chars = malloc(temp_len + 1);
+    memcpy(config.actual_row[config.actual_numrows].chars, line, temp_len);
+    config.actual_row[config.actual_numrows].chars[temp_len] = '\0';
+    while (temp_len >= config.ncols - 1)
     {
-      while(linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
-      int temp_len = linelen;
-      int start_index = 0;
-      //File data and file indexing
-      config.actual_row = realloc(config.actual_row, sizeof(struct_erow)*(config.actual_numrows + 1));
-      config.actual_row[config.actual_numrows].size = temp_len;
-      config.actual_row[config.actual_numrows].chars = malloc(temp_len + 1);
-      memcpy(config.actual_row[config.actual_numrows].chars, line, temp_len);
-      config.actual_row[config.actual_numrows].chars[temp_len] = '\0';
-      while(temp_len >= config.ncols - 1)
-      {
-        read_file_helper(config.ncols - 1, start_index,line,config.actual_numrows);
-        temp_len = temp_len - config.ncols + 1;
-        start_index++;
-      }
-      if (temp_len > 0 || (temp_len == 0 && config.actual_row[config.actual_numrows].size == 0))
-      {
-        read_file_helper(temp_len, start_index,line,config.actual_numrows);
-      }
-      config.actual_numrows++;
+      read_file_helper(config.ncols - 1, start_index, line, config.actual_numrows);
+      temp_len = temp_len - config.ncols + 1;
+      start_index++;
     }
-    free(line);
-    fclose(file);
+    if (temp_len > 0 || (temp_len == 0 && config.actual_row[config.actual_numrows].size == 0))
+    {
+      read_file_helper(temp_len, start_index, line, config.actual_numrows);
+    }
+    config.actual_numrows++;
+  }
+  free(line);
+  fclose(file);
 }
 
-void read_file_helper(int size, int start_index,char *line,int actual_index)
+void read_file_helper(int size, int start_index, char *line, int actual_index)
 {
   int index = config.numrows;
   config.row = realloc(config.row, sizeof(erow) * (config.numrows + 1));
@@ -432,24 +502,24 @@ void read_file_helper(int size, int start_index,char *line,int actual_index)
 void refresh(int m_cursor)
 {
   struct terminal_config *temp_config = &config;
-  for (int i = 0; i < config.numrows;i++)
+  for (int i = 0; i < config.numrows; i++)
   {
     free(temp_config->row[i].chars);
   }
   config.numrows = 0;
-  for (int i = 0;i < config.actual_numrows;i++)
+  for (int i = 0; i < config.actual_numrows; i++)
   {
     int temp_len = config.actual_row[i].size;
     int start_index = 0;
-    while(temp_len >= config.ncols - 1)
+    while (temp_len >= config.ncols - 1)
     {
-      read_file_helper(config.ncols - 1, start_index,config.actual_row[i].chars,i);
+      read_file_helper(config.ncols - 1, start_index, config.actual_row[i].chars, i);
       temp_len = temp_len - config.ncols + 1;
       start_index++;
     }
     if (temp_len > 0 || (temp_len == 0 && config.actual_row[i].size == 0))
     {
-      read_file_helper(temp_len, start_index,config.actual_row[i].chars,i);
+      read_file_helper(temp_len, start_index, config.actual_row[i].chars, i);
     }
   }
   if (m_cursor == -1) return;
@@ -474,7 +544,7 @@ void refresh(int m_cursor)
     move_cursor(up);
     break;
   case 6:
-    move_cursor(end);  
+    move_cursor(end);
   default:
     set_cursor();
     break;
@@ -499,12 +569,12 @@ void update_screen(int reset)
     {
       append_string(&v, "~", 1);
     }
-    else if(index < config.numrows && config.row[index].size > 0)
+    else if (index < config.numrows && config.row[index].size > 0)
     {
       int length = config.row[index].size;
-      append_string(&v,config.row[index].chars ,length);
+      append_string(&v, config.row[index].chars, length);
     }
-    //Append this after each line
+    // Append this after each line
     append_string(&v, "\x1b[K", 3);
 
     if (y < config.nrows - 1)
@@ -512,7 +582,7 @@ void update_screen(int reset)
       append_string(&v, "\r\n", 2);
     }
   }
-  append_string(&v,"\r\n", 2);
+  append_string(&v, "\r\n", 2);
   append_string(&v, "\x1b[1;31m", 7);
   if (config.mode == locked)
   {
@@ -522,7 +592,16 @@ void update_screen(int reset)
   {
     append_string(&v, ":Edit Mode", 10);
   }
-  append_string(&v,"\x1b[0;39m", 7);
+  else if (config.mode == find)
+  {
+    if (reset == -1) append_string(&v, ":Enter the text to be searched", 30);
+    else
+    {
+      append_string(&v, ":", 1);
+      append_string(&v, &s_txt.chars[s_txt.start_index], s_txt.size < config.ncols - 19 ? s_txt.size + 1 : config.ncols - 20);
+    }
+  }
+  append_string(&v, "\x1b[0;39m", 7);
   append_string(&v, "\x1b[K", 3);
   // Bring back cursor to 1x1
   if (reset == 1) append_string(&v, "\x1b[H", 3);
@@ -534,7 +613,7 @@ void update_screen(int reset)
 }
 void initialize_first_character()
 {
-  config.actual_row = realloc(config.actual_row,sizeof(struct_erow)*(config.actual_numrows + 1));
+  config.actual_row = realloc(config.actual_row, sizeof(struct_erow) * (config.actual_numrows + 1));
   config.actual_row[0].chars = malloc(1);
   config.actual_row[0].chars[0] = '\0';
   config.actual_row[0].size = 0;
@@ -573,7 +652,7 @@ void show_instructions()
   }
   write(STDOUT_FILENO, instruction.val, instruction.length);
   char c;
-  while(c != '\r') read(STDIN_FILENO, &c, 1);
+  while (c != '\r') read(STDIN_FILENO, &c, 1);
 }
 
 int main(int argc, char *argv[])
@@ -588,13 +667,13 @@ int main(int argc, char *argv[])
     config.mode = locked;
     read_file(argv[1]);
   }
-  else 
+  else
   {
     config.mode = edit;
     initialize_first_character();
   }
   update_screen(1);
-  while(1)
+  while (1)
   {
     char key_pressed = read_key();
     key_process(key_pressed);
@@ -605,11 +684,12 @@ int main(int argc, char *argv[])
   struct initial_string *temp = &v;
   free(temp->val);
   struct terminal_config *temp_config = &config;
-  for (int i = 0; i < config.numrows;i++)
+  free(s_txt.chars);
+  for (int i = 0; i < config.numrows; i++)
   {
     free(temp_config->row[i].chars);
   }
-  for (int i = 0; i < config.actual_numrows;i++)
+  for (int i = 0; i < config.actual_numrows; i++)
   {
     free(temp_config->actual_row[i].chars);
   }
