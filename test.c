@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 // typedef struct actual_erow
 // {
@@ -51,8 +52,36 @@
 //     return 0;
 // }
 
+// int main()
+// {
+//     int len = 11;
+//     char *a = malloc(len);
+//     strcpy(a,"shanephear\0");
+//     a = realloc(a,len - 1);
+//     memmove(&a[4],&a[5], 5);
+//     a[len - 2] = '\0';
+//     printf("%s\n",a);
+//     // printf("%c\n",a[len+1]);
+//     free(a);
+// }
+// int main() {
+//   char haystack[] = "Hello, world world!";
+//   char needle[] = "world";
+//   char *ptr;
+
+//   ptr = strstr(&haystack[8], needle);
+//   if (ptr != NULL) {
+//     printf("The substring \"%s\" was found at position %ld.\n", needle, ptr - haystack);
+//   } else {
+//     printf("The substring \"%s\" was not found.\n", needle);
+//   }
+
+//   return 0;
+// }
+
 int main()
 {
-    char *shane = "shane";
-    printf("%p\n",shane[1]);
+  int float_vale = 10;
+  printf("%d\n",(int)floor(10.5));
+  return 0;
 }
