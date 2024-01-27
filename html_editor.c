@@ -57,6 +57,7 @@ struct terminal_config
   struct_erow *actual_row;
   int row_start;
   char mode;
+  char *filename;
 };
 
 struct terminal_config config;
@@ -81,13 +82,15 @@ enum editor_mode
 {
   find,
   locked,
-  edit
+  edit,
+  save,
+  new_file
 };
 // Use this variable with fprintf function for debugging purpose
 // Open output.txt to see the print statements
 FILE *console_file;
 // Search bar text
-char initial_s_text[] = ":Enter the text to be searched <Press Enter key>";
+char initial_s_text[] = ":Enter the text to be searched <Enter key>";
 char no_result[] = ":No result found <Start typing to resume search>";
 char *search_bar_text;
 
@@ -107,6 +110,8 @@ void refresh(int m_cursor);
 void edit_character(char key_value, char type);
 void edit_search_text(char key_value, char type);
 void initialize_first_character();
+void save_changes();
+void set_status_bar(int reset);
 
 void enable_default()
 {
@@ -208,6 +213,11 @@ void key_process(char key_val)
     exit(0);
     break;
   case ctrl_value('i'):
+    if ((config.mode == find || config.mode == new_file) && config.y_position == config.nrows)
+    {
+      config.y_position = 0;
+      config.x_position = 0;
+    }  
     config.mode = config.mode == edit ? locked : edit;
     update_screen(-1);
     break;
@@ -218,6 +228,12 @@ void key_process(char key_val)
     config.x_position = 1;
     search_bar_text = initial_s_text;
     update_screen(-1);
+    break;
+  case ctrl_value('s'):
+    if (config.filename) config.mode = save;
+    else config.mode = new_file;
+    update_screen(-1);
+    save_changes();
     break;
   case delete:
     if (config.mode == find)
@@ -251,6 +267,7 @@ void edit_search_text(char key_value, char type)
     else move_search_cursor(left,0);
     break;
   case 'e':
+    if (s_txt.size == 0) return;
     for (;s_txt.search_index < config.actual_numrows;s_txt.search_index++)
     {
       char *position = strstr(&config.actual_row[s_txt.search_index].chars[s_txt.sub_string_index], s_txt.chars);
@@ -512,6 +529,7 @@ void append_string(struct initial_string *source, char *val, int len)
 void read_file(char *filename)
 {
   FILE *file = fopen(filename, "r");
+  config.filename = filename;
   char *line = NULL;
   size_t linecap = 0;
   ssize_t linelen;
@@ -641,23 +659,7 @@ void update_screen(int reset)
   }
   append_string(&v, "\r\n", 2);
   append_string(&v, "\x1b[1;31m", 7);
-  if (config.mode == locked)
-  {
-    append_string(&v, ":Locked", 7);
-  }
-  else if (config.mode == edit)
-  {
-    append_string(&v, ":Edit Mode", 10);
-  }
-  else if (config.mode == find)
-  {
-    if (reset == -1) append_string(&v, search_bar_text, strlen(search_bar_text));
-    else
-    {
-      append_string(&v, ":", 1);
-      append_string(&v, &s_txt.chars[s_txt.start_index], s_txt.size < config.ncols - 19 ? s_txt.size + 1 : config.ncols - 20);
-    }
-  }
+  set_status_bar(reset);
   append_string(&v, "\x1b[0;39m", 7);
   append_string(&v, "\x1b[K", 3);
   // Bring back cursor to 1x1
@@ -668,6 +670,7 @@ void update_screen(int reset)
   struct initial_string *temp = &v;
   free(temp->val);
 }
+
 void initialize_first_character()
 {
   config.actual_row = realloc(config.actual_row, sizeof(struct_erow) * (config.actual_numrows + 1));
@@ -712,8 +715,54 @@ void show_instructions()
   while (c != '\r') read(STDIN_FILENO, &c, 1);
 }
 
+void set_status_bar(int reset)
+{
+  switch (config.mode)
+  {
+  case locked:
+    append_string(&v, ":Locked", 7);
+    break;
+  case edit:
+    append_string(&v, ":Edit Mode", 10);
+    break;
+  case find:
+    if (reset == -1) append_string(&v, search_bar_text, strlen(search_bar_text));
+    else
+    {
+      append_string(&v, ":", 1);
+      append_string(&v, &s_txt.chars[s_txt.start_index], s_txt.size < config.ncols - 19 ? s_txt.size + 1 : config.ncols - 20);
+    }
+    break;
+  case save:
+    append_string(&v, ":Save Changes? <Y/N>", 20);
+    break;
+  case new_file:
+    append_string(&v, ":Enter name of the file <Max 30 characters>", 43);
+  }
+}
+
+void save_changes()
+{
+  if (config.mode == save)
+  {
+    char c;
+    while (c != 'y' && c != 'Y' && c != 'n' && c != 'N') read(STDIN_FILENO, &c, 1);
+    if (c == 'y' || c == 'Y')
+    {
+      FILE *file = fopen(config.filename, "w");
+      for (int i = 0; i < config.actual_numrows;i++)
+      {
+        fprintf(file,"%s\n",config.actual_row[i].chars);
+      }
+      fclose(file);
+    }
+    key_process(ctrl_value('i'));
+  }
+}
+
 int main(int argc, char *argv[])
 {
+  system("clear");
   console_file = fopen("output.txt", "w");
   // disabling default behaviour of terminal
   initial_setting();
