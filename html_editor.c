@@ -15,6 +15,7 @@
 
 #include <sys/ioctl.h>
 #include <string.h>
+#include <math.h>
 
 #define ctrl_value(key) ((key)&0x1f)
 
@@ -38,6 +39,9 @@ typedef struct search_txt
   int size;
   int start_index;
   int search_index;
+  int sub_string_index;
+  int total_index;
+  int found;
 } search_txt;
 
 struct search_txt s_txt;
@@ -82,9 +86,14 @@ enum editor_mode
 // Use this variable with fprintf function for debugging purpose
 // Open output.txt to see the print statements
 FILE *console_file;
+// Search bar text
+char initial_s_text[] = ":Enter the text to be searched <Press Enter key>";
+char no_result[] = ":No result found <Start typing to resume search>";
+char *search_bar_text;
 
 void enable_default();
 void initial_setting();
+void search_bar_intial();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
 void read_file_helper(int size, int start_index, char *line, int actual_index);
@@ -132,10 +141,19 @@ void initial_setting()
   config.actual_numrows = 0;
   config.row_start = 0;
   config.mode = locked;
+  search_bar_intial();
+  atexit(enable_default);
+}
+
+void search_bar_intial()
+{
+  s_txt.chars = NULL;
   s_txt.size = 0;
   s_txt.start_index = 0;
   s_txt.search_index = 0;
-  atexit(enable_default);
+  s_txt.total_index = 0;
+  s_txt.sub_string_index = 0;
+  s_txt.found = 0;
 }
 
 char read_key()
@@ -195,9 +213,10 @@ void key_process(char key_val)
     break;
   case ctrl_value('f'):
     config.mode = find;
-    s_txt.size = 0;
+    search_bar_intial();
     config.y_position = config.nrows;
     config.x_position = 1;
+    search_bar_text = initial_s_text;
     update_screen(-1);
     break;
   case delete:
@@ -232,6 +251,43 @@ void edit_search_text(char key_value, char type)
     else move_search_cursor(left,0);
     break;
   case 'e':
+    for (;s_txt.search_index < config.actual_numrows;s_txt.search_index++)
+    {
+      char *position = strstr(&config.actual_row[s_txt.search_index].chars[s_txt.sub_string_index], s_txt.chars);
+      if (position)
+      {
+        s_txt.sub_string_index = position - config.actual_row[s_txt.search_index].chars;
+        int div_result = (int)ceil((float)s_txt.sub_string_index / (float)(config.ncols - 1));
+        int index = (div_result > 0 ? div_result - 1 : 0) + s_txt.total_index; 
+        config.x_position = s_txt.sub_string_index  % (config.ncols - 1);
+        config.y_position = index > config.nrows - 1 ?  config.nrows - 1 : index;
+        config.row_start = index - config.nrows + 1 > 0 ? index - config.nrows + 1 : 0;
+        // fprintf(console_file,"actual position: %d actual index: %d size :%d\n",s_txt.sub_string_index,s_txt.search_index,config.actual_row[s_txt.search_index].size);
+        fprintf(console_file,"index in row: %d position in row: %d\n",index,config.x_position);
+        s_txt.sub_string_index++;
+        update_screen(0);
+        set_cursor();
+        s_txt.found = 1;
+        break;
+      }
+      fprintf(console_file,"previous value: %d size : %d config.ncols: %d row_start %d\n",s_txt.total_index,config.actual_row[s_txt.search_index].size,config.ncols,config.row_start);
+      int total_index = (int)ceil((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1));
+      s_txt.total_index =  s_txt.total_index + (total_index > 0 ? total_index : 1);
+      fprintf(console_file,"total index:%d division result %d \n",s_txt.total_index,(int)floor((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1)));
+      s_txt.sub_string_index = 0;
+    }
+    if (s_txt.search_index == config.actual_numrows && s_txt.found) 
+    {
+      s_txt.total_index = 0;
+      s_txt.search_index = 0;
+      s_txt.found = 0;
+      edit_search_text('0', 'e');
+    } 
+    else if (s_txt.found == 0)
+    {
+      search_bar_text = no_result;
+      update_screen(-1);
+    }
     break;
   case 'i':
     s_txt.size++;
@@ -401,6 +457,7 @@ void move_cursor(char key_value)
     }
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
+    fprintf(console_file,"%d\n",config.row_start);
     break;
   case right:
     y_p = config.y_position + config.row_start;
@@ -594,7 +651,7 @@ void update_screen(int reset)
   }
   else if (config.mode == find)
   {
-    if (reset == -1) append_string(&v, ":Enter the text to be searched", 30);
+    if (reset == -1) append_string(&v, search_bar_text, strlen(search_bar_text));
     else
     {
       append_string(&v, ":", 1);
