@@ -33,7 +33,7 @@ typedef struct struct_erow
   char *chars;
 } struct_erow;
 
-typedef struct search_txt
+typedef struct status_txt
 {
   char *chars;
   int size;
@@ -42,9 +42,9 @@ typedef struct search_txt
   int sub_string_index;
   int total_index;
   int found;
-} search_txt;
+} status_txt;
 
-struct search_txt s_txt;
+struct status_txt s_txt;
 struct terminal_config
 {
   struct termios default_terminos;
@@ -92,26 +92,32 @@ FILE *console_file;
 // Search bar text
 char initial_s_text[] = ":Enter the text to be searched <Enter key>";
 char no_result[] = ":No result found <Start typing to resume search>";
-char *search_bar_text;
+char new_file_text[] = ":Enter name of the file <Max 30 characters>";
+char *status_bar_text;
+
+int editor();
 
 void enable_default();
 void initial_setting();
-void search_bar_intial();
+void status_bar_initial();
 void append_string(struct initial_string *source, char *val, int len);
 void read_file(char *filename);
 void read_file_helper(int size, int start_index, char *line, int actual_index);
 char read_key();
 void key_process(char key_val);
 void move_cursor(char key_val);
-void move_search_cursor(char key_val, int m_cursor);
+void move_status_cursor(char key_val, int m_cursor);
 void set_cursor();
 void update_screen(int reset);
 void refresh(int m_cursor);
 void edit_character(char key_value, char type);
-void edit_search_text(char key_value, char type);
+void edit_status_text(char key_value, char type);
 void initialize_first_character();
 void save_changes();
+void search();
 void set_status_bar(int reset);
+void move_cursor_to_status();
+void free_memory();
 
 void enable_default()
 {
@@ -146,11 +152,11 @@ void initial_setting()
   config.actual_numrows = 0;
   config.row_start = 0;
   config.mode = locked;
-  search_bar_intial();
+  status_bar_initial();
   atexit(enable_default);
 }
 
-void search_bar_intial()
+void status_bar_initial()
 {
   s_txt.chars = NULL;
   s_txt.size = 0;
@@ -198,18 +204,20 @@ char read_key()
 
 void key_process(char key_val)
 {
+  char c = '\0';
   switch (key_val)
   {
   case up:
   case down:
   case right:
   case left:
-    if (config.mode == find) move_search_cursor(key_val,0);
+    if (config.mode == find || config.mode == new_file) move_status_cursor(key_val,0);
     else move_cursor(key_val);
     break;
   case ctrl_value('q'):
     write(STDOUT_FILENO, "\x1b[2K", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
+    free_memory();
     exit(0);
     break;
   case ctrl_value('i'):
@@ -223,36 +231,53 @@ void key_process(char key_val)
     break;
   case ctrl_value('f'):
     config.mode = find;
-    search_bar_intial();
-    config.y_position = config.nrows;
-    config.x_position = 1;
-    search_bar_text = initial_s_text;
+    move_cursor_to_status();
+    status_bar_text = initial_s_text;
     update_screen(-1);
     break;
   case ctrl_value('s'):
-    if (config.filename) config.mode = save;
-    else config.mode = new_file;
-    update_screen(-1);
-    save_changes();
+    if (config.filename)
+    {
+      config.mode = save;
+      update_screen(-1);
+      fprintf(console_file,"%c\n",c);
+      while (c != 'y' && c != 'Y' && c != 'n' && c != 'N') read(STDIN_FILENO, &c, 1);
+      if (c == 'y' || c == 'Y') save_changes();
+      else key_process(ctrl_value('i'));
+    }
+    else 
+    {
+      config.mode = new_file;
+      move_cursor_to_status();
+      status_bar_text = new_file_text;
+      update_screen(-1);
+    }
     break;
   case delete:
-    if (config.mode == find)
-      edit_search_text('0', 'd');
+    if (config.mode == find || config.mode == new_file)
+      edit_status_text('0', 'd');
     else
       edit_character('0', 'd');
     break;
   case enter:
-    if (config.mode == find) edit_search_text('0', 'e');
+    if (config.mode == find || config.mode == new_file) edit_status_text('0', 'e');
     else edit_character('0', 'e');
     break;
   default:
-    if (config.mode == find) edit_search_text(key_val, 'i');
+    if (config.mode == find || config.mode == new_file) edit_status_text(key_val, 'i');
     else edit_character(key_val, 'i');
     break;
   }
 }
 
-void edit_search_text(char key_value, char type)
+void move_cursor_to_status()
+{
+  status_bar_initial();
+  config.y_position = config.nrows;
+  config.x_position = 1;
+}
+
+void edit_status_text(char key_value, char type)
 {
   int a_position = config.x_position + s_txt.start_index;
   switch (type)
@@ -263,59 +288,70 @@ void edit_search_text(char key_value, char type)
     s_txt.size--;
     memmove(&s_txt.chars[a_position - 2], &s_txt.chars[a_position - 1], s_txt.size - a_position + 2);
     s_txt.chars[s_txt.size] = '\0';
-    if (s_txt.start_index > 0) move_search_cursor(left,1);
-    else move_search_cursor(left,0);
+    if (s_txt.start_index > 0) move_status_cursor(left,1);
+    else move_status_cursor(left,0);
     break;
   case 'e':
     if (s_txt.size == 0) return;
-    for (;s_txt.search_index < config.actual_numrows;s_txt.search_index++)
+    if (config.mode == find) search();
+    else 
     {
-      char *position = strstr(&config.actual_row[s_txt.search_index].chars[s_txt.sub_string_index], s_txt.chars);
-      if (position)
-      {
-        s_txt.sub_string_index = position - config.actual_row[s_txt.search_index].chars;
-        int div_result = (int)ceil((float)s_txt.sub_string_index / (float)(config.ncols - 1));
-        int index = (div_result > 0 ? div_result - 1 : 0) + s_txt.total_index; 
-        config.x_position = s_txt.sub_string_index  % (config.ncols - 1);
-        config.y_position = index > config.nrows - 1 ?  config.nrows - 1 : index;
-        config.row_start = index - config.nrows + 1 > 0 ? index - config.nrows + 1 : 0;
-        // fprintf(console_file,"actual position: %d actual index: %d size :%d\n",s_txt.sub_string_index,s_txt.search_index,config.actual_row[s_txt.search_index].size);
-        fprintf(console_file,"index in row: %d position in row: %d\n",index,config.x_position);
-        s_txt.sub_string_index++;
-        update_screen(0);
-        set_cursor();
-        s_txt.found = 1;
-        break;
-      }
-      fprintf(console_file,"previous value: %d size : %d config.ncols: %d row_start %d\n",s_txt.total_index,config.actual_row[s_txt.search_index].size,config.ncols,config.row_start);
-      int total_index = (int)ceil((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1));
-      s_txt.total_index =  s_txt.total_index + (total_index > 0 ? total_index : 1);
-      fprintf(console_file,"total index:%d division result %d \n",s_txt.total_index,(int)floor((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1)));
-      s_txt.sub_string_index = 0;
-    }
-    if (s_txt.search_index == config.actual_numrows && s_txt.found) 
-    {
-      s_txt.total_index = 0;
-      s_txt.search_index = 0;
-      s_txt.found = 0;
-      edit_search_text('0', 'e');
-    } 
-    else if (s_txt.found == 0)
-    {
-      search_bar_text = no_result;
-      update_screen(-1);
+      config.filename = s_txt.chars;
+      save_changes();
     }
     break;
   case 'i':
+    if (config.mode == new_file && s_txt.size == 30) return;
     s_txt.size++;
     s_txt.chars = realloc(s_txt.chars, s_txt.size + 1);
     s_txt.chars[s_txt.size] = '\0';
     memmove(&s_txt.chars[a_position], &s_txt.chars[a_position - 1], s_txt.size - a_position);
     s_txt.chars[a_position - 1] = key_value;
-    move_search_cursor(right,0);
+    move_status_cursor(right,0);
     break;
   default:
     break;
+  }
+}
+
+void search()
+{
+  for (; s_txt.search_index < config.actual_numrows; s_txt.search_index++)
+  {
+    char *position = strstr(&config.actual_row[s_txt.search_index].chars[s_txt.sub_string_index], s_txt.chars);
+    if (position)
+    {
+      s_txt.sub_string_index = position - config.actual_row[s_txt.search_index].chars;
+      int div_result = (int)ceil((float)s_txt.sub_string_index / (float)(config.ncols - 1));
+      int index = (div_result > 0 ? div_result - 1 : 0) + s_txt.total_index;
+      config.x_position = s_txt.sub_string_index % (config.ncols - 1);
+      config.y_position = index > config.nrows - 1 ? config.nrows - 1 : index;
+      config.row_start = index - config.nrows + 1 > 0 ? index - config.nrows + 1 : 0;
+      // fprintf(console_file,"actual position: %d actual index: %d size :%d\n",s_txt.sub_string_index,s_txt.search_index,config.actual_row[s_txt.search_index].size);
+      fprintf(console_file, "index in row: %d position in row: %d\n", index, config.x_position);
+      s_txt.sub_string_index++;
+      update_screen(0);
+      set_cursor();
+      s_txt.found = 1;
+      break;
+    }
+    fprintf(console_file, "previous value: %d size : %d config.ncols: %d row_start %d\n", s_txt.total_index, config.actual_row[s_txt.search_index].size, config.ncols, config.row_start);
+    int total_index = (int)ceil((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1));
+    s_txt.total_index = s_txt.total_index + (total_index > 0 ? total_index : 1);
+    fprintf(console_file, "total index:%d division result %d \n", s_txt.total_index, (int)floor((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1)));
+    s_txt.sub_string_index = 0;
+  }
+  if (s_txt.search_index == config.actual_numrows && s_txt.found)
+  {
+    s_txt.total_index = 0;
+    s_txt.search_index = 0;
+    s_txt.found = 0;
+    edit_status_text('0', 'e');
+  }
+  else if (s_txt.found == 0)
+  {
+    status_bar_text = no_result;
+    update_screen(-1);
   }
 }
 
@@ -420,7 +456,7 @@ void edit_character(char key_value, char type)
   refresh(m_cursor);
 }
 
-void move_search_cursor(char key_val, int m_cursor)
+void move_status_cursor(char key_val, int m_cursor)
 {
   int a_position = config.x_position + s_txt.start_index;
   switch (key_val)
@@ -697,7 +733,7 @@ void show_instructions()
   row[10] = "Ctrl + F - Search";
   row[11] = "";
   row[12] = "";
-  row[13] = "\x1b[0;104mPress ENTER key to continue\x1b[0;39m";
+  row[13] = "\x1b[1;34mPress ENTER key to continue\x1b[0;39m";
   struct initial_string instruction;
   instruction.length = 0;
   instruction.val = NULL;
@@ -711,12 +747,13 @@ void show_instructions()
     append_string(&instruction, "\r\n", 2);
   }
   write(STDOUT_FILENO, instruction.val, instruction.length);
-  char c;
+  char c = '\0';
   while (c != '\r') read(STDIN_FILENO, &c, 1);
 }
 
 void set_status_bar(int reset)
 {
+  char c;
   switch (config.mode)
   {
   case locked:
@@ -726,7 +763,8 @@ void set_status_bar(int reset)
     append_string(&v, ":Edit Mode", 10);
     break;
   case find:
-    if (reset == -1) append_string(&v, search_bar_text, strlen(search_bar_text));
+  case new_file:
+    if (reset == -1) append_string(&v, status_bar_text, strlen(status_bar_text));
     else
     {
       append_string(&v, ":", 1);
@@ -736,59 +774,62 @@ void set_status_bar(int reset)
   case save:
     append_string(&v, ":Save Changes? <Y/N>", 20);
     break;
-  case new_file:
-    append_string(&v, ":Enter name of the file <Max 30 characters>", 43);
   }
 }
 
 void save_changes()
 {
-  if (config.mode == save)
+  fprintf(console_file,"%s\n",config.filename);
+  FILE *file = fopen(config.filename, "w");
+  if (file)
   {
-    char c;
-    while (c != 'y' && c != 'Y' && c != 'n' && c != 'N') read(STDIN_FILENO, &c, 1);
-    if (c == 'y' || c == 'Y')
+    for (int i = 0; i < config.actual_numrows;i++)
     {
-      FILE *file = fopen(config.filename, "w");
-      for (int i = 0; i < config.actual_numrows;i++)
-      {
-        fprintf(file,"%s\n",config.actual_row[i].chars);
-      }
-      fclose(file);
+      fprintf(file,"%s\n",config.actual_row[i].chars);
     }
+    fclose(file);
     key_process(ctrl_value('i'));
   }
 }
 
-int main(int argc, char *argv[])
+void starter()
 {
   system("clear");
-  console_file = fopen("output.txt", "w");
+  console_file = fopen("console_file.txt", "w");
   // disabling default behaviour of terminal
   initial_setting();
   show_instructions();
-  // If file name is passed
-  if (argc > 1)
-  {
-    config.mode = locked;
-    read_file(argv[1]);
-  }
-  else
-  {
-    config.mode = edit;
-    initialize_first_character();
-  }
+}
+
+void open_editor_f(char * filename)
+{
+  config.mode = locked;
+  read_file(filename);
+  editor();
+}
+
+void open_editor()
+{
+  config.mode = edit;
+  initialize_first_character();
+  editor();
+}
+
+int editor()
+{
   update_screen(1);
   while (1)
   {
     char key_pressed = read_key();
     key_process(key_pressed);
   }
+  return 0;
+}
 
+void free_memory()
+{
   // Free memory
   fclose(console_file);
-  struct initial_string *temp = &v;
-  free(temp->val);
   struct terminal_config *temp_config = &config;
   free(s_txt.chars);
   for (int i = 0; i < config.numrows; i++)
@@ -799,6 +840,4 @@ int main(int argc, char *argv[])
   {
     free(temp_config->actual_row[i].chars);
   }
-
-  return 0;
 }

@@ -1,0 +1,2 @@
+This command checks if the memory allocation is done properly
+clang -fsanitize=address -o my_program starter.c
