@@ -49,7 +49,7 @@ A status bar is available at the bottom to show what mode the editor is currentl
 As the terminal’s default behavior is restricted, print function in C cannot be used for debugging purpose. To overcome this console_file.txt is created and using fprintf function anything can be printed to the ***console_file.txt***.
 
 #### The functions that are available in ***text_editor.c*** are as follows:
-starter() => Clears the terminal, prepares the debugging file, reconfigures the terminal to editor setting and show the instruction page.
+`starter()`&nbsp;&nbsp;Clears the terminal, prepares the debugging file, reconfigures the terminal to editor setting and show the instruction page.
 
 `open_editor_f(char * filename)`&nbsp;&nbsp;Opens editor with existing file.
 
