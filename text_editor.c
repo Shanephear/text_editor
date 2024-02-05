@@ -217,6 +217,7 @@ void key_process(char key_val)
   case ctrl_value('q'):
     write(STDOUT_FILENO, "\x1b[2K", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
+    system("clear");
     free_memory();
     exit(0);
     break;
@@ -240,7 +241,6 @@ void key_process(char key_val)
     {
       config.mode = save;
       update_screen(-1);
-      fprintf(console_file,"%c\n",c);
       while (c != 'y' && c != 'Y' && c != 'n' && c != 'N') read(STDIN_FILENO, &c, 1);
       if (c == 'y' || c == 'Y') save_changes();
       else key_process(ctrl_value('i'));
@@ -327,18 +327,14 @@ void search()
       config.x_position = s_txt.sub_string_index % (config.ncols - 1);
       config.y_position = index > config.nrows - 1 ? config.nrows - 1 : index;
       config.row_start = index - config.nrows + 1 > 0 ? index - config.nrows + 1 : 0;
-      // fprintf(console_file,"actual position: %d actual index: %d size :%d\n",s_txt.sub_string_index,s_txt.search_index,config.actual_row[s_txt.search_index].size);
-      fprintf(console_file, "index in row: %d position in row: %d\n", index, config.x_position);
       s_txt.sub_string_index++;
       update_screen(0);
       set_cursor();
       s_txt.found = 1;
       break;
     }
-    fprintf(console_file, "previous value: %d size : %d config.ncols: %d row_start %d\n", s_txt.total_index, config.actual_row[s_txt.search_index].size, config.ncols, config.row_start);
     int total_index = (int)ceil((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1));
     s_txt.total_index = s_txt.total_index + (total_index > 0 ? total_index : 1);
-    fprintf(console_file, "total index:%d division result %d \n", s_txt.total_index, (int)floor((float)config.actual_row[s_txt.search_index].size / (float)(config.ncols - 1)));
     s_txt.sub_string_index = 0;
   }
   if (s_txt.search_index == config.actual_numrows && s_txt.found)
@@ -510,7 +506,6 @@ void move_cursor(char key_value)
     }
     y_p = config.y_position + config.row_start;
     if (config.x_position > config.row[y_p].size) config.x_position = config.row[y_p].size;
-    fprintf(console_file,"%d\n",config.row_start);
     break;
   case right:
     y_p = config.y_position + config.row_start;
@@ -779,7 +774,6 @@ void set_status_bar(int reset)
 
 void save_changes()
 {
-  fprintf(console_file,"%s\n",config.filename);
   FILE *file = fopen(config.filename, "w");
   if (file)
   {
