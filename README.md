@@ -1,8 +1,7 @@
 <img width="700" alt="Screenshot 2024-02-04 at 11 43 04 PM" src="https://github.com/Shanephear/text_editor/assets/67944253/6d4e9147-6eb6-45be-b73c-07bb21100eef">
 
-# RS Editor
-#### Video Demo:  <URL HERE>
-#### Description:
+# RS Editor: Text Editor
+
 This is a text editor built using c program named as RS Editor. The program can edit an existing file or create a new file.
 
 Steps to be followed to run the program:
